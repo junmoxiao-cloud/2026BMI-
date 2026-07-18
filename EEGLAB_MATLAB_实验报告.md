@@ -45,7 +45,7 @@
 | MATLAB 版本 | R2024b |
 | EEGLAB 版本 | 2026.0.0 |
 | EEGLAB 路径 | `D:\Matalb_working_path\eeglab_current\eeglab2026.0.0` |
-| 网络环境 | 香港代理（插件下载需切换至德国代理） |
+| 网络环境 | 常规 |
 
 ### 已安装插件
 
@@ -316,7 +316,7 @@ run('D:\Matalb_working_path\eeglab_current\eeglab_tutorial_complete.m')
 
 | 问题 | 根本原因 | 解决方法 |
 |---|---|---|
-| Manage Extensions 无法联网 | Java URLConnection 与香港代理 TLS 不兼容 | 切换德国代理 |
+| Manage Extensions 无法联网 | Java URLConnection 与香港代理 TLS 不兼容 | 调试网络状况 |
 | 命令行输入路径报错 | MATLAB 不支持直接输入路径执行脚本 | 改用 `run()` 或 F5 |
 | `saveas` 保存 GUI 报错 | `gcf` 指向 EEGLAB 主窗口而非数据图 | 改用 `print()` 批量保存 |
 | `exportgraphics` 报错 | 需要坐标区句柄而非 Figure 句柄 | 改用 `print()` |
