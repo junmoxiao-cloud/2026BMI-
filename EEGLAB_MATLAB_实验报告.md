@@ -44,7 +44,7 @@
 | 操作系统 | Windows 11 |
 | MATLAB 版本 | R2024b |
 | EEGLAB 版本 | 2026.0.0 |
-| EEGLAB 路径 | `D:\Matalb_working_path\eeglab_current\eeglab2026.0.0` |
+| EEGLAB 路径 | `<你的本机路径>` |
 | 网络环境 | 常规 |
 
 ### 已安装插件
@@ -287,16 +287,16 @@ pop_spectopo(EEG, 1, [], 'EEG', 'percent', 15, 'freq', [6 10 22], 'freqrange', [
 
 | 文件名 | 路径 | 说明 |
 |---|---|---|
-| `eeglab_tutorial_complete.m` | `D:\Matalb_working_path\eeglab_current\` | 完整教程主脚本（含注释） |
-| `eeglab_scripts_summary.m` | `D:\Matalb_working_path\eeglab_current\` | 关键步骤精简版脚本 |
-| `eeglab_startup.m` | `D:\Matalb_working_path\` | MATLAB 启动初始化脚本 |
-| `EEGLAB_MATLAB_使用指南.md` | `Desktop\乔钰成\...\NEOschool\` | 环境与命令速查指南 |
+| `eeglab_tutorial_complete.m` | `<你的本机脚本路径>` | 完整教程主脚本（含注释） |
+| `eeglab_scripts_summary.m` | `<你的本机路径>` | 关键步骤精简版脚本 |
+| `eeglab_startup.m` | `<你的本机路径>` | MATLAB 启动初始化脚本 |
+| `EEGLAB_MATLAB_使用指南.md` | `<你的本机路径>` | 环境与命令速查指南 |
 
 **运行方式：**
 
 ```matlab
 % 方式1：命令行
-run('D:\Matalb_working_path\eeglab_current\eeglab_tutorial_complete.m')
+run('<你的本机脚本路径>')
 
 % 方式2：MATLAB编辑器打开 .m 文件后按 F5
 ```
@@ -316,7 +316,7 @@ run('D:\Matalb_working_path\eeglab_current\eeglab_tutorial_complete.m')
 
 | 问题 | 根本原因 | 解决方法 |
 |---|---|---|
-| Manage Extensions 无法联网 | Java URLConnection 与香港代理 TLS 不兼容 | 调试网络状况 |
+| Manage Extensions 无法联网 | Java URLConnection 兼容性问题 | 调试网络状况 |
 | 命令行输入路径报错 | MATLAB 不支持直接输入路径执行脚本 | 改用 `run()` 或 F5 |
 | `saveas` 保存 GUI 报错 | `gcf` 指向 EEGLAB 主窗口而非数据图 | 改用 `print()` 批量保存 |
 | `exportgraphics` 报错 | 需要坐标区句柄而非 Figure 句柄 | 改用 `print()` |
