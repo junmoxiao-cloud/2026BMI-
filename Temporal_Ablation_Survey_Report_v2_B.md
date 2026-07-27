@@ -159,6 +159,23 @@ Phase 3 ── 单时间窗全频段掩码（5时间窗 + 1基准 = 6次推理�
 | full_time_gamma | 全段 × gamma(45–70Hz) | 验证 T1/T2 gamma 的时间特异性 |
 | random_control | 随机低优先级条件 | 验证实验无随机误差 |
 
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig1_stft_heatmap.png"
+       alt="Phase 1 STFT 时频掩码热力图（v2-B，7频段）"
+       width="720" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图1：时间窗 × 频段的 Top-1 Accuracy Drop 热力图（v2-B，7频段含精细化 Gamma）。颜色越深越红 = 该时频组合越重要；可见 T1×alpha 与 T2×beta 为最高贡献区域，三档 Gamma 列均近零。</em></p>
+
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig2_phase1_bar.png"
+       alt="Phase 1 消融结果柱状图（v2-B）"
+       width="720" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图2：所有消融条件按 Top-1 Drop 降序排列（v2-B，35条件+4对照）。红色柱=Top-1 Drop，蓝色柱=Top-5 Drop。前三名均为低频段（alpha/beta），Gamma 三档均排于末尾。</em></p>
+
+
 ---
 
 ## 6. Phase 2：振幅扰动
@@ -170,6 +187,39 @@ Phase 3 ── 单时间窗全频段掩码（5时间窗 + 1基准 = 6次推理�
 | **振幅缩放** | STFT 振幅 × α | α = 0.0/0.1/0.2/0.4/0.6/0.8/1.0/1.5/2.0（9档） | 对绝对功率的敏感性；α=0.6–0.8 模拟 AD 振幅退化 |
 | **相位随机化** | 随机化相位 | rand = 0%/25%/50%/75%/100%（5档） | 模型依赖精确时序（CTC 机制）吗？ |
 | **高斯噪声注入** | 添加噪声至目标 SNR | SNR = +20/+10/+5/0/-5/-10 dB（6档） | 实际 BCI 噪声环境下的鲁棒性 |
+
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig3_amplitude_scaling.png"
+       alt="Phase 2A 振幅缩放曲线"
+       width="680" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图3：三个关键条件的振幅缩放曲线（α=0→2）。橙色阴影 = AD 振幅退化范围（α=0.6–0.8）。T1×alpha（红）在 α=1.0 原始值时准确率最低，呈反向特征；T2×beta（绿）在 AD 范围内几乎无损失。</em></p>
+
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig4_phase_randomization.png"
+       alt="Phase 2B 相位随机化曲线"
+       width="680" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图4：三个关键条件的相位随机化曲线（rand=0→1.0）。T2×beta（绿）在 rand=0.25 时即产生显著下降，说明相位精度是关键信息载体，且相位损失（Δ=+0.160）大于振幅损失（Δ=+0.110）。</em></p>
+
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig5_noise_injection.png"
+       alt="Phase 2C 高斯噪声注入曲线"
+       width="680" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图5：三个关键条件的高斯噪声注入曲线（SNR 从 +20dB 递减至 -10dB，从右向左）。T2×beta（绿）在 SNR≥0dB 时准确率几乎不变，鲁棒性最强；T1×alpha/beta 在高 SNR 下已严重受损。</em></p>
+
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig6_phase2_summary.png"
+       alt="Phase 2 三种扰动极端参数综合对比"
+       width="680" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图6：三个条件 × 三种扰动极端参数下的综合对比（振幅α=0 / 相位rand=1.0 / 噪声SNR=-10dB）。T2×beta 的相位柱（绿）高于振幅柱（红），确认相位为主导信息载体。</em></p>
+
 
 ---
 
@@ -237,26 +287,44 @@ Phase 3（全频段掩码）：
 
 ## 8. 综合发现与神经科学解释
 
-### 8.1 v1 核心发现（待用 v2-B 精细化 Gamma 验证）
+### 8.1 v1 核心发现（v2-B 精细化 Gamma 已验证）
 
 | 发现 | v1 结果 | v2-B 验证目的 |
 |---|---|---|
-| **Gamma 不是最重要的** | T1×gamma(30–80Hz) 仅排第 9（Δ=+0.015） | 细分三档：确认哪段贡献最强 |
-| **Alpha 是负向特征** | T1×alpha Δ=+0.185（最大），振幅越大准确率越低 | v2-B 对照验证 |
+| **Gamma 不是最重要的** | T1×gamma(30–80Hz) 仅排第 9（Δ=+0.015） | ✅ v2-B 三档细分均无贡献（Δ≤+0.010），结论确认 |
+| **Alpha 是负向特征** | T1×alpha Δ=+0.185（最大），振幅越大准确率越低 | ✅ v2-B 对照验证一致 |
 | **T2×beta 相位携带类别信息** | 相位 Δ=+0.155 > 振幅 Δ=+0.110 | 保持不变 |
 | **AD 振幅退化对 T2×beta 无影响** | α=0.6–0.8 区间 Δ≈0 | 保持不变 |
 
-### 8.2 三档 Gamma 细化的预期神经科学解释
+### 8.2 三档 Gamma 细化：实验结果与神经科学解释
 
-**情形 A：gamma(45–70Hz) 最显著（最优假设）**  
-符合 Fries (2015) CTC 理论：视觉前馈 Gamma 峰值约在 50–70Hz，提示 NeuroBridge 提取了视觉皮层前馈 Gamma 同步信息。
+**情形 A：gamma(45–70Hz) 最显著（最优假设）——❌ 未成立**  
+实测：T1×gamma Δ=+0.010，T2×gamma Δ=0.000，均在测量噪声范围（Δ<0.020）。NeuroBridge 并未提取视觉皮层前馈 Gamma 同步信号。
 
-**情形 B：三档 Gamma 均无显著贡献（与 v1 一致）**  
-NeuroBridge 解码依赖 alpha/beta 调制性信号，而非感觉皮层 Gamma 前馈。
-提示模型学到的是视觉**认知状态**表征（反直觉发现，具有发表价值）。
 
-**情形 C：high_gamma(70–100Hz) 阴性（预测最可能）**  
-直接引用 Niedermeyer & da Silva (2004) 关于 scalp EEG 高频 EMG 伪迹的说明，增强结果可信度。
+**情形 B：三档 Gamma 均无显著贡献（与 v1 一致）——✅ 成立**  
+实测：全部三档（low_gamma/gamma/high_gamma）在所有时间窗的 Δ Top-1 均 ≤ +0.010，无一超过有效效应阈值（Δ≥0.020）。NeuroBridge 解码依赖 alpha/beta 调制性信号，而非感觉皮层 Gamma 前馈，提示模型学到的是视觉**认知状态**表征（反直觉发现，具有发表价值）。
+
+
+**情形 C：high_gamma(70–100Hz) 阴性——✅ 成立（实测确认）**  
+
+实测数据（全5个时间窗）：
+
+| 条件 | Top-1 | Δ Top-1 | Top-5 | Δ Top-5 |
+|---|---|---|---|---|
+| T1×high_gamma | 0.685 | +0.005 | 0.945 | 0.000 |
+| **T2×high_gamma** | **0.695** | **−0.005** | 0.940 | +0.005 |
+| T0×high_gamma | 0.700 | −0.010 | 0.945 | 0.000 |
+| T3×high_gamma | 0.680 | +0.010 | 0.950 | −0.005 |
+| T4×high_gamma | 0.690 | 0.000 | 0.950 | −0.005 |
+
+Δ Top-1 全部在 −0.010 ~ +0.010 之间，**5个条目无一超过有效阈值（Δ≥0.020）**，且正负分布无规律（随机噪声特征）。T2×high_gamma Δ=**−0.005**，掩码后准确率微升，是典型去噪效果。
+
+原因分析（三层）：
+
+1. **数据集物理截止**：THINGS-EEG2 在线滤波硬截止 100Hz（Gifford et al., 2022 §2.2），70–100Hz 频段能量已被大幅衰减，尤其 90–100Hz 接近零值，掩码等于掩空。
+2. **头皮 EEG 的 EMG 伪迹**：70Hz 以上头皮信号被肌电伪迹（EMG，主导频率 20–300Hz）严重污染（Niedermeyer & da Silva, 2004），NeuroBridge 无法从该频段学到稳定的类别判别特征。
+3. **模型未学习该频段**：Δ 值正负随机分布（非系统性下降），说明模型权重对 70–100Hz 没有稳定响应，与数据层面噪声主导的结论吻合。
 
 ### 8.3 Phase 3 的神经科学意义
 
