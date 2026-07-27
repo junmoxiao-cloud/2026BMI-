@@ -1,4 +1,4 @@
-﻿# NeuroBridge Temporal 消融实验报告 v2-B
+# NeuroBridge Temporal 消融实验报告 v2-B
 ## EEG-to-Image 解码模型时频特征重要性分析：三档 Gamma 精细化方案
 
 > **作者：** 乔钰成  
@@ -282,6 +282,14 @@ Phase 3（全频段掩码）：
 | **full_freq_T2** | **0.235** | **0.470** | **+0.455** | **+0.475** | **22.14** |
 | full_freq_T3 | 0.575 | 0.840 | +0.115 | +0.105 | 3.835 |
 | full_freq_T4 | 0.610 | 0.890 | +0.080 | +0.055 | 3.015 |
+
+<p align="center">
+  <img src="assets/temporal_ablation/fig7_phase3_window_masking.png"
+       alt="Phase 3 全频段时间窗掩码结果"
+       width="800" style="border:1px solid #ccc; border-radius:6px;" />
+</p>
+<p align="center"><em>图7：Phase 3 全频段时间窗掩码结果（Sub-08 Pilot）。左图：各时间窗的 Top-1/Top-5 Accuracy Drop，T2（152–300ms）以 Δ=+0.455 远超其他时间窗；右图：mean_rank 退化，T2 掩码后 mean_rank 从基线 2.055 飙升至 22.14（约11倍），红色背景为核心时间窗。</em></p>
+
 
 ---
 
