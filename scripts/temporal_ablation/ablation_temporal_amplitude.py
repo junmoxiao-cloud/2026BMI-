@@ -424,6 +424,7 @@ def retrieval_metrics(eeg_f, img_f, correct_cols):
         "top5":        float((ranks<=5).float().mean()),
         "mean_rank":   float(ranks.float().mean()),
         "median_rank": float(ranks.float().median()),
+        "raw_preds":   (ranks <= 1).tolist(),
     }
 
 
@@ -587,6 +588,7 @@ def main() -> None:
                     "median_rank":  m["median_rank"],
                     "top1_drop":    round(baseline_metrics["top1"] - m["top1"], 4),
                     "top5_drop":    round(baseline_metrics["top5"] - m["top5"], 4),
+                    "raw_preds":    m["raw_preds"],
                 }
                 all_results.append(result)
                 marker = " ← AD range" if 0.5 <= alpha <= 0.85 else ""
@@ -610,6 +612,7 @@ def main() -> None:
                     "median_rank":  m["median_rank"],
                     "top1_drop":    round(baseline_metrics["top1"] - m["top1"], 4),
                     "top5_drop":    round(baseline_metrics["top5"] - m["top5"], 4),
+                    "raw_preds":    m["raw_preds"],
                 }
                 all_results.append(result)
                 print(f"    rand={rand_ratio:.2f}  Top-1={m['top1']:.4f}  Δ={result['top1_drop']:+.4f}")
@@ -632,6 +635,7 @@ def main() -> None:
                     "median_rank":  m["median_rank"],
                     "top1_drop":    round(baseline_metrics["top1"] - m["top1"], 4),
                     "top5_drop":    round(baseline_metrics["top5"] - m["top5"], 4),
+                    "raw_preds":    m["raw_preds"],
                 }
                 all_results.append(result)
                 print(f"    SNR={snr_db:+.0f}dB  Top-1={m['top1']:.4f}  Δ={result['top1_drop']:+.4f}")
@@ -641,7 +645,7 @@ def main() -> None:
     fieldnames = ["condition", "perturbation", "param_name", "param_value",
                   "top1", "top5", "mean_rank", "median_rank", "top1_drop", "top5_drop"]
     with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(all_results)
     print(f"\nSaved CSV  → {csv_path}")

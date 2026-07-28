@@ -1,4 +1,4 @@
-﻿"""
+"""
 ablation_visualize.py — Phase 1 & 2 Result Visualization
 =========================================================
 读取 Phase 1 (STFT) 和 Phase 2 (振幅扰动) 的实验结果，生成以下图表：
@@ -31,6 +31,8 @@ import numpy as np
 SCRIPT_DIR = Path(__file__).resolve().parent
 PHASE1_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "stft_ablation_results.csv"
 PHASE2_CSV = SCRIPT_DIR / "results" / "temporal_amplitude_ablation" / "amplitude_ablation_results.csv"
+PHASE3_CSV = SCRIPT_DIR / "results" / "phase3_full_freq_masking" / "phase3_window_masking_results.csv"
+MCNEMAR_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "mcnemar_fdr_results.csv"
 OUTPUT_DIR = SCRIPT_DIR / "results" / "figures"
 
 TW_ORDER = ["T0_0-50ms","T1_50-150ms","T2_150-300ms","T3_300-500ms","T4_500-800ms"]
@@ -74,10 +76,21 @@ def load_mcnemar_fdr(path):
     with path.open(encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             cond = r.get("Condition", "")
-            sig = r.get("Significant_FDR_0.05", "False")
-            if cond and sig == "True":
-                sig_map[cond] = True
+            if cond:
+                try:
+                    p_raw = float(r.get("p_value_raw", 1.0))
+                    p_fdr = float(r.get("p_value_fdr", 1.0))
+                    sig_map[cond] = {"p_raw": p_raw, "p_fdr": p_fdr}
+                except ValueError:
+                    pass
     return sig_map
+
+def get_sig_asterisks(p_val):
+    if p_val < 0.01:
+        return "**"
+    elif p_val < 0.05:
+        return "*"
+    return ""
 
 def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
     if sig_map is None: sig_map = {}
@@ -97,8 +110,14 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
                 c = "white" if abs(v) > vmax*0.6 else "black"
                 text_str = f"{v:+.3f}"
                 cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
-                if sig_map.get(cond_name):
-                    text_str += "\n*"
+                cond_info = sig_map.get(cond_name)
+                if cond_info:
+                    p = cond_info["p_raw"]
+                    q = cond_info["p_fdr"]
+                    if p < 0.05 and q >= 0.05:
+                        text_str += "\n*"
+                    elif p < 0.05 and q < 0.05:
+                        text_str += "\n**"
                 ax.text(j,i,text_str,ha="center",va="center",fontsize=9,color=c,fontweight="bold")
             else:
                 ax.text(j,i,"N/A",ha="center",va="center",fontsize=8,color="gray")
@@ -107,6 +126,14 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
         for j in range(len(FB_ORDER)):
             if not np.isnan(matrix[i,j]) and matrix[i,j] >= top_val*0.9:
                 ax.add_patch(plt.Rectangle((j-0.5,i-0.5),1,1,fill=False,edgecolor="gold",linewidth=3))
+            
+            cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
+            cond_info = sig_map.get(cond_name)
+            if cond_info:
+                p = cond_info["p_raw"]
+                q = cond_info["p_fdr"]
+                if p < 0.05 and q < 0.05:
+                    ax.add_patch(plt.Rectangle((j-0.5,i-0.5),1,1,fill=False,edgecolor="black",linewidth=3))
     ax.set_xticks(range(len(FB_ORDER)))
     ax.set_xticklabels([FB_LABELS[fb] for fb in FB_ORDER], fontsize=9)
     ax.set_yticks(range(len(TW_ORDER)))
@@ -115,7 +142,7 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
     cb.set_label("Top-1 Accuracy Drop  (higher = more important)", fontsize=10)
     bl = f"  [Baseline Top-1: {baseline_top1:.4f}]" if baseline_top1 else ""
     ax.set_title(f"Phase 1: STFT Temporal Ablation — Top-1 Accuracy Drop Heatmap{bl}\n"
-                 "* p_FDR < 0.05 (McNemar)\n"
+                 "* p < 0.05 (Uncorrected) | ** q < 0.05 (FDR Corrected)\n"
                  "(NeuroBridge sub-08 | THINGS-EEG2 | Cichy 2014 / Thorpe 1996 time windows)",
                  fontsize=10, fontweight="bold")
     ax.set_xlabel("Frequency Band  [Fries 2015: gamma=feedforward, beta=feedback]", fontsize=9)
@@ -125,7 +152,8 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
-def plot_phase1_bar(rows, out_dir):
+def plot_phase1_bar(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     valid = [r for r in rows
              if r.get("name") not in ("baseline","full_mask_all","random_control","")
              and r.get("top1_drop") not in ("","None",None)]
@@ -139,6 +167,19 @@ def plot_phase1_bar(rows, out_dir):
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.bar(x-w/2, d1, w, label="Top-1 Drop", color="#E74C3C", alpha=0.85)
     ax.bar(x+w/2, d5, w, label="Top-5 Drop", color="#3498DB", alpha=0.85)
+    
+    # Add significance asterisks above Top-1 bars
+    for i, r in enumerate(valid):
+        cond = r["name"]
+        if sig_map.get(cond):
+            p_val = sig_map[cond]["p_fdr"]
+            ast = get_sig_asterisks(p_val)
+            if ast:
+                # Place it slightly above the bar
+                y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
+                ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
+                        fontsize=12, fontweight="bold", color="black")
+
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9, rotation=45, ha="right")
     ax.set_ylabel("Accuracy Drop", fontsize=10)
@@ -179,17 +220,32 @@ def generate_gamma_anomaly_report(rows, out_dir):
         f.write(report_text)
     print(f"  Saved report: {report_path}")
 
-def plot_scaling_curve(rows, out_dir):
+def plot_scaling_curve(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     data = [r for r in rows if r.get("perturbation")=="scaling"]
     if not data: print("  [Skip Fig3] no scaling data"); return
     conds = sorted(set(r["condition"] for r in data))
     fig, ax = plt.subplots(figsize=(9,5))
     for i,cond in enumerate(conds):
         sub = sorted([r for r in data if r["condition"]==cond], key=lambda x: float(x["param_value"]))
-        ax.plot([float(r["param_value"]) for r in sub],
-                [float(r["top1"]) for r in sub],
-                "o-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=6,
+        xs = [float(r["param_value"]) for r in sub]
+        ys = [float(r["top1"]) for r in sub]
+        ax.plot(xs, ys, "o-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=6,
                 label=cond.replace("__"," / "))
+        
+        # Add significance asterisks
+        for j, r in enumerate(sub):
+            param_val = float(r["param_value"])
+            if param_val == 1.0: continue # baseline
+            cond_name = f"{cond}_scaling_alpha={param_val}"
+            if sig_map.get(cond_name):
+                p_val = sig_map[cond_name]["p_fdr"]
+                ast = get_sig_asterisks(p_val)
+                if ast:
+                    # Place asterisk slightly above or below the point
+                    # Since drop usually means lower accuracy, placing it slightly above
+                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     baseline_vals = [float(r["top1"]) for r in data if float(r["param_value"])==1.0]
     if baseline_vals:
         ax.axhline(np.mean(baseline_vals), color="gray", linestyle="--", linewidth=1.5, label="Baseline (alpha=1.0)")
@@ -205,17 +261,29 @@ def plot_scaling_curve(rows, out_dir):
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
-def plot_phase_curve(rows, out_dir):
+def plot_phase_curve(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     data = [r for r in rows if r.get("perturbation")=="phase_rand"]
     if not data: print("  [Skip Fig4] no phase data"); return
     conds = sorted(set(r["condition"] for r in data))
     fig, ax = plt.subplots(figsize=(8,5))
     for i,cond in enumerate(conds):
         sub = sorted([r for r in data if r["condition"]==cond], key=lambda x: float(x["param_value"]))
-        ax.plot([float(r["param_value"]) for r in sub],
-                [float(r["top1"]) for r in sub],
-                "s-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=7,
+        xs = [float(r["param_value"]) for r in sub]
+        ys = [float(r["top1"]) for r in sub]
+        ax.plot(xs, ys, "s-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=7,
                 label=cond.replace("__"," / "))
+        
+        for j, r in enumerate(sub):
+            param_val = float(r["param_value"])
+            if param_val == 0.0: continue # baseline
+            cond_name = f"{cond}_phase_rand_rand_ratio={param_val}"
+            if sig_map.get(cond_name):
+                p_val = sig_map[cond_name]["p_fdr"]
+                ast = get_sig_asterisks(p_val)
+                if ast:
+                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     ax.set_xlabel("Phase Randomization Ratio  (0=original phase, 1=fully random phase)", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
     ax.set_title("Phase 2B: Phase Randomization — Power preserved, temporal structure destroyed\n"
@@ -227,7 +295,8 @@ def plot_phase_curve(rows, out_dir):
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
-def plot_noise_curve(rows, out_dir):
+def plot_noise_curve(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     data = [r for r in rows if r.get("perturbation")=="gaussian_noise"]
     if not data: print("  [Skip Fig5] no noise data"); return
     conds = sorted(set(r["condition"] for r in data))
@@ -235,10 +304,21 @@ def plot_noise_curve(rows, out_dir):
     for i,cond in enumerate(conds):
         sub = sorted([r for r in data if r["condition"]==cond],
                      key=lambda x: float(x["param_value"]), reverse=True)
-        ax.plot([float(r["param_value"]) for r in sub],
-                [float(r["top1"]) for r in sub],
-                "^-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=7,
+        xs = [float(r["param_value"]) for r in sub]
+        ys = [float(r["top1"]) for r in sub]
+        ax.plot(xs, ys, "^-", color=COLORS[i%len(COLORS)], linewidth=2, markersize=7,
                 label=cond.replace("__"," / "))
+        
+        for j, r in enumerate(sub):
+            param_val = float(r["param_value"])
+            # Assuming no strict baseline for noise, we just annotate any point that is significant
+            cond_name = f"{cond}_gaussian_noise_snr_db={param_val}"
+            if sig_map.get(cond_name):
+                p_val = sig_map[cond_name]["p_fdr"]
+                ast = get_sig_asterisks(p_val)
+                if ast:
+                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     ax.axvline(0, color="gray", linestyle=":", linewidth=1.2, label="SNR=0dB")
     ax.set_xlabel("SNR (dB)  [right=cleaner signal, left=noisier]", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
@@ -250,7 +330,50 @@ def plot_noise_curve(rows, out_dir):
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
-def plot_phase2_summary(rows, out_dir):
+def plot_phase3_bar(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
+    valid = [r for r in rows if r.get("name") not in ("baseline", "")]
+    if not valid: print("  [Skip Fig7] no Phase 3 data"); return
+    
+    # Sort by time window chronologically
+    time_order = ["T0", "T1", "T2", "T3", "T4"]
+    def get_order(name):
+        for i, t in enumerate(time_order):
+            if t in name: return i
+        return 99
+    valid.sort(key=lambda x: get_order(x["name"]))
+    
+    names = [r["name"].replace("full_freq_", "All Freq\n") for r in valid]
+    d1 = [float(r["top1_drop"]) for r in valid]
+    d5 = [float(r.get("top5_drop") or 0) for r in valid]
+    x = np.arange(len(names)); w = 0.35
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(x-w/2, d1, w, label="Top-1 Drop", color="#E74C3C", alpha=0.85)
+    ax.bar(x+w/2, d5, w, label="Top-5 Drop", color="#3498DB", alpha=0.85)
+    
+    # Add significance asterisks above Top-1 bars
+    for i, r in enumerate(valid):
+        cond = "Phase3_" + r["name"]
+        if sig_map.get(cond):
+            p_val = sig_map[cond]["p_fdr"]
+            ast = get_sig_asterisks(p_val)
+            if ast:
+                y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
+                ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
+                        fontsize=12, fontweight="bold", color="black", zorder=10)
+
+    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
+    ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9)
+    ax.set_ylabel("Accuracy Drop", fontsize=10)
+    ax.set_title("Phase 3: Full Frequency Band Masking per Time Window", fontsize=11, fontweight="bold")
+    ax.legend(fontsize=10); ax.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    out = out_dir / "fig7_phase3_bar.png"
+    plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+    print(f"  Saved: {out}")
+
+def plot_phase2_summary(rows, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     conds = sorted(set(r["condition"] for r in rows))
     if not conds: return
     pert_info = [
@@ -266,6 +389,29 @@ def plot_phase2_summary(rows, out_dir):
             m = [r for r in rows if r["condition"]==cond and r["perturbation"]==pt
                  and abs(float(r["param_value"])-ep)<0.01]
             drops.append(float(m[0]["top1_drop"]) if m else 0.0)
+            
+            if m:
+                # Get significance for this specific bar
+                # cond_name example: T1_50-150ms__alpha_scaling_alpha=0.0
+                cond_name = ""
+                if pt == "scaling":
+                    cond_name = f"{cond}_scaling_alpha={ep}"
+                elif pt == "phase_rand":
+                    cond_name = f"{cond}_phase_rand_rand_ratio={ep}"
+                elif pt == "gaussian_noise":
+                    cond_name = f"{cond}_gaussian_noise_snr_db={ep}"
+                
+                if sig_map.get(cond_name):
+                    p_val = sig_map[cond_name]["p_fdr"]
+                    ast = get_sig_asterisks(p_val)
+                    if ast:
+                        bar_idx = conds.index(cond)
+                        bar_x = x[bar_idx] + (pi-1)*w
+                        bar_y = drops[-1]
+                        y_pos = bar_y + 0.01 if bar_y >= 0 else bar_y - 0.02
+                        ax.text(bar_x, y_pos, ast, ha="center", va="bottom" if bar_y >= 0 else "top",
+                                fontsize=10, fontweight="bold", color="black", zorder=10)
+                        
         ax.bar(x+(pi-1)*w, drops, w, label=pl, color=COLORS[pi], alpha=0.85)
     ax.set_xticks(x)
     ax.set_xticklabels([c.replace("__","\n") for c in conds], fontsize=9)
@@ -281,12 +427,13 @@ def plot_phase2_summary(rows, out_dir):
     print(f"  Saved: {out}")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Visualization for Phase 1 & 2 Ablation")
-    parser.add_argument("--phase", type=int, choices=[1,2,12], default=12,
-                        help="要可视化的阶段 (1 / 2 / 12=两者都画)")
+    parser = argparse.ArgumentParser(description="Visualization for Phase 1, 2 & 3 Ablation")
+    parser.add_argument("--phase", type=int, choices=[1,2,3,123], default=123,
+                        help="要可视化的阶段 (1 / 2 / 3 / 123=全画)")
     parser.add_argument("--phase1-csv", type=Path, default=PHASE1_CSV)
     parser.add_argument("--phase2-csv", type=Path, default=PHASE2_CSV)
-    parser.add_argument("--mcnemar-csv", type=Path, default=None,
+    parser.add_argument("--phase3-csv", type=Path, default=PHASE3_CSV)
+    parser.add_argument("--mcnemar-csv", type=Path, default=MCNEMAR_CSV,
                         help="Path to mcnemar_fdr_results.csv")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     return parser.parse_args()
@@ -296,29 +443,38 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     print(f"[Visualize] Output dir: {args.output_dir}")
 
-    if args.phase in (1, 12):
+    sig_map = load_mcnemar_fdr(args.mcnemar_csv) if args.mcnemar_csv else {}
+
+    if args.phase in (1, 12, 123):
         print("\n--- Phase 1 Figures ---")
         data, baseline_top1 = load_phase1(args.phase1_csv)
         rows_p1 = load_csv_rows(args.phase1_csv)
-        sig_map = load_mcnemar_fdr(args.mcnemar_csv) if args.mcnemar_csv else {}
         if data:
             plot_heatmap(data, baseline_top1, args.output_dir, sig_map=sig_map)
         else:
             print("  [Skip Fig1] Phase 1 CSV not found or empty")
         if rows_p1:
-            plot_phase1_bar(rows_p1, args.output_dir)
+            plot_phase1_bar(rows_p1, args.output_dir, sig_map=sig_map)
             generate_gamma_anomaly_report(rows_p1, args.output_dir)
 
-    if args.phase in (2, 12):
+    if args.phase in (2, 12, 123):
         print("\n--- Phase 2 Figures ---")
         rows_p2 = load_csv_rows(args.phase2_csv)
         if rows_p2:
-            plot_scaling_curve(rows_p2, args.output_dir)
-            plot_phase_curve(rows_p2, args.output_dir)
-            plot_noise_curve(rows_p2, args.output_dir)
-            plot_phase2_summary(rows_p2, args.output_dir)
+            plot_scaling_curve(rows_p2, args.output_dir, sig_map=sig_map)
+            plot_phase_curve(rows_p2, args.output_dir, sig_map=sig_map)
+            plot_noise_curve(rows_p2, args.output_dir, sig_map=sig_map)
+            plot_phase2_summary(rows_p2, args.output_dir, sig_map=sig_map)
         else:
             print("  [Skip Phase2] Phase 2 CSV not found or empty")
+
+    if args.phase in (3, 123):
+        print("\n--- Phase 3 Figures ---")
+        rows_p3 = load_csv_rows(args.phase3_csv)
+        if rows_p3:
+            plot_phase3_bar(rows_p3, args.output_dir, sig_map=sig_map)
+        else:
+            print("  [Skip Phase3] Phase 3 CSV not found or empty")
 
     print(f"\n[OK] All figures saved to: {args.output_dir}")
     print("    fig1_stft_heatmap.png        — Phase 1 时频热力图")
@@ -327,6 +483,7 @@ def main():
     print("    fig4_phase_randomization.png — Phase 2B 相位随机化曲线")
     print("    fig5_noise_injection.png     — Phase 2C 噪声注入曲线")
     print("    fig6_phase2_summary.png      — Phase 2 三种扰动综合对比")
+    print("    fig7_phase3_bar.png          — Phase 3 全频段掩码柱状图")
 
 if __name__ == "__main__":
     main()
