@@ -32,7 +32,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PHASE1_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "stft_ablation_results.csv"
 PHASE2_CSV = SCRIPT_DIR / "results" / "temporal_amplitude_ablation" / "amplitude_ablation_results.csv"
 PHASE3_CSV = SCRIPT_DIR / "results" / "phase3_full_freq_masking" / "phase3_window_masking_results.csv"
-MCNEMAR_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "mcnemar_fdr_results.csv"
+MCNEMAR_CSV = SCRIPT_DIR / "results" / "mcnemar_fdr_results.csv"
 OUTPUT_DIR = SCRIPT_DIR.parent.parent / "assets" / "temporal_ablation"
 
 TW_ORDER = ["T0_0-50ms","T1_50-150ms","T2_150-300ms","T3_300-500ms","T4_500-800ms"]
@@ -85,10 +85,13 @@ def load_mcnemar_fdr(path):
                     pass
     return sig_map
 
-def get_sig_asterisks(p_val):
-    if p_val < 0.01:
+def get_sig_asterisks(cond_info):
+    if not cond_info: return ""
+    p = cond_info.get("p_raw", 1.0)
+    q = cond_info.get("p_fdr", 1.0)
+    if p < 0.05 and q < 0.05:
         return "**"
-    elif p_val < 0.05:
+    elif p < 0.05:
         return "*"
     return ""
 
@@ -110,14 +113,9 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
                 c = "white" if abs(v) > vmax*0.6 else "black"
                 text_str = f"{v:+.3f}"
                 cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
-                cond_info = sig_map.get(cond_name)
-                if cond_info:
-                    p = cond_info["p_raw"]
-                    q = cond_info["p_fdr"]
-                    if p < 0.05 and q >= 0.05:
-                        text_str += "\n*"
-                    elif p < 0.05 and q < 0.05:
-                        text_str += "\n**"
+                ast = get_sig_asterisks(sig_map.get(cond_name))
+                if ast:
+                    text_str += f"\n{ast}"
                 ax.text(j,i,text_str,ha="center",va="center",fontsize=9,color=c,fontweight="bold")
             else:
                 ax.text(j,i,"N/A",ha="center",va="center",fontsize=8,color="gray")
@@ -130,8 +128,8 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
             cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
             cond_info = sig_map.get(cond_name)
             if cond_info:
-                p = cond_info["p_raw"]
-                q = cond_info["p_fdr"]
+                p = cond_info.get("p_raw", 1.0)
+                q = cond_info.get("p_fdr", 1.0)
                 if p < 0.05 and q < 0.05:
                     ax.add_patch(plt.Rectangle((j-0.5,i-0.5),1,1,fill=False,edgecolor="black",linewidth=3))
     ax.set_xticks(range(len(FB_ORDER)))
@@ -171,14 +169,12 @@ def plot_phase1_bar(rows, out_dir, sig_map=None):
     # Add significance asterisks above Top-1 bars
     for i, r in enumerate(valid):
         cond = r["name"]
-        if sig_map.get(cond):
-            p_val = sig_map[cond]["p_fdr"]
-            ast = get_sig_asterisks(p_val)
-            if ast:
-                # Place it slightly above the bar
-                y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
-                ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
-                        fontsize=12, fontweight="bold", color="black")
+        ast = get_sig_asterisks(sig_map.get(cond))
+        if ast:
+            # Place it slightly above the bar
+            y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
+            ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
+                    fontsize=12, fontweight="bold", color="black")
 
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9, rotation=45, ha="right")
@@ -238,14 +234,12 @@ def plot_scaling_curve(rows, out_dir, sig_map=None):
             param_val = float(r["param_value"])
             if param_val == 1.0: continue # baseline
             cond_name = f"{cond}_scaling_alpha={param_val}"
-            if sig_map.get(cond_name):
-                p_val = sig_map[cond_name]["p_fdr"]
-                ast = get_sig_asterisks(p_val)
-                if ast:
-                    # Place asterisk slightly above or below the point
-                    # Since drop usually means lower accuracy, placing it slightly above
-                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
-                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
+            ast = get_sig_asterisks(sig_map.get(cond_name))
+            if ast:
+                # Place asterisk slightly above or below the point
+                # Since drop usually means lower accuracy, placing it slightly above
+                ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                        fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     baseline_vals = [float(r["top1"]) for r in data if float(r["param_value"])==1.0]
     if baseline_vals:
         ax.axhline(np.mean(baseline_vals), color="gray", linestyle="--", linewidth=1.5, label="Baseline (alpha=1.0)")
@@ -278,12 +272,10 @@ def plot_phase_curve(rows, out_dir, sig_map=None):
             param_val = float(r["param_value"])
             if param_val == 0.0: continue # baseline
             cond_name = f"{cond}_phase_rand_rand_ratio={param_val}"
-            if sig_map.get(cond_name):
-                p_val = sig_map[cond_name]["p_fdr"]
-                ast = get_sig_asterisks(p_val)
-                if ast:
-                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
-                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
+            ast = get_sig_asterisks(sig_map.get(cond_name))
+            if ast:
+                ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                        fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     ax.set_xlabel("Phase Randomization Ratio  (0=original phase, 1=fully random phase)", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
     ax.set_title("Phase 2B: Phase Randomization — Power preserved, temporal structure destroyed\n"
@@ -313,12 +305,10 @@ def plot_noise_curve(rows, out_dir, sig_map=None):
             param_val = float(r["param_value"])
             # Assuming no strict baseline for noise, we just annotate any point that is significant
             cond_name = f"{cond}_gaussian_noise_snr_db={param_val}"
-            if sig_map.get(cond_name):
-                p_val = sig_map[cond_name]["p_fdr"]
-                ast = get_sig_asterisks(p_val)
-                if ast:
-                    ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
-                            fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
+            ast = get_sig_asterisks(sig_map.get(cond_name))
+            if ast:
+                ax.text(xs[j], ys[j] + 0.01, ast, ha="center", va="bottom",
+                        fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     ax.axvline(0, color="gray", linestyle=":", linewidth=1.2, label="SNR=0dB")
     ax.set_xlabel("SNR (dB)  [right=cleaner signal, left=noisier]", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
@@ -354,13 +344,11 @@ def plot_phase3_bar(rows, out_dir, sig_map=None):
     # Add significance asterisks above Top-1 bars
     for i, r in enumerate(valid):
         cond = "Phase3_" + r["name"]
-        if sig_map.get(cond):
-            p_val = sig_map[cond]["p_fdr"]
-            ast = get_sig_asterisks(p_val)
-            if ast:
-                y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
-                ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
-                        fontsize=12, fontweight="bold", color="black", zorder=10)
+        ast = get_sig_asterisks(sig_map.get(cond))
+        if ast:
+            y_pos = d1[i] + 0.01 if d1[i] >= 0 else d1[i] - 0.02
+            ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
+                    fontsize=12, fontweight="bold", color="black", zorder=10)
 
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9)
@@ -401,16 +389,14 @@ def plot_phase2_summary(rows, out_dir, sig_map=None):
                 elif pt == "gaussian_noise":
                     cond_name = f"{cond}_gaussian_noise_snr_db={ep}"
                 
-                if sig_map.get(cond_name):
-                    p_val = sig_map[cond_name]["p_fdr"]
-                    ast = get_sig_asterisks(p_val)
-                    if ast:
-                        bar_idx = conds.index(cond)
-                        bar_x = x[bar_idx] + (pi-1)*w
-                        bar_y = drops[-1]
-                        y_pos = bar_y + 0.01 if bar_y >= 0 else bar_y - 0.02
-                        ax.text(bar_x, y_pos, ast, ha="center", va="bottom" if bar_y >= 0 else "top",
-                                fontsize=10, fontweight="bold", color="black", zorder=10)
+                ast = get_sig_asterisks(sig_map.get(cond_name))
+                if ast:
+                    bar_idx = conds.index(cond)
+                    bar_x = x[bar_idx] + (pi-1)*w
+                    bar_y = drops[-1]
+                    y_pos = bar_y + 0.01 if bar_y >= 0 else bar_y - 0.02
+                    ax.text(bar_x, y_pos, ast, ha="center", va="bottom" if bar_y >= 0 else "top",
+                            fontsize=10, fontweight="bold", color="black", zorder=10)
                         
         ax.bar(x+(pi-1)*w, drops, w, label=pl, color=COLORS[pi], alpha=0.85)
     ax.set_xticks(x)
