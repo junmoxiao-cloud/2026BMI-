@@ -4,6 +4,11 @@
 在时频消融实验中，通常预期掩码（消除）某一频段会导致模型解码性能下降（即 Accuracy Drop > 0）。然而，实验数据表明，在某些特定时间窗内，对 Gamma 频段（含 low_gamma, gamma, high_gamma）的消除反而导致了模型准确率的提升（即 Accuracy Drop < 0），呈现出显著的反常现象。
 
 【反常数值区间与频段特征】
+- 时间窗: T4_500-800ms    | 频段: low_gamma    | Top-1 Drop: -0.0150
+- 时间窗: T0_0-50ms       | 频段: high_gamma   | Top-1 Drop: -0.0100
+- 时间窗: T4_500-800ms    | 频段: gamma        | Top-1 Drop: -0.0100
+- 时间窗: T2_150-300ms    | 频段: high_gamma   | Top-1 Drop: -0.0050
+- 时间窗: T3_300-500ms    | 频段: low_gamma    | Top-1 Drop: -0.0050
 - 时间窗: T_full          | 频段: gamma        | Top-1 Drop: -0.0050
 
 【与基线/其他频段的差异分析】
