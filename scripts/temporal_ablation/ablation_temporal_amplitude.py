@@ -1,4 +1,4 @@
-﻿"""
+"""
 ablation_temporal_amplitude.py — Phase 2: Amplitude Perturbation Ablation
 ==========================================================================
 针对 NeuroBridge EEG-to-Image 解码模型的第二阶段 Temporal 振幅扰动实验。
@@ -36,6 +36,20 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import sys
+from typing import TYPE_CHECKING
+
+
+def _bootstrap_site_packages() -> None:
+    python_root = Path(sys.executable).resolve().parent
+    candidate = python_root / "Lib" / "site-packages"
+    if candidate.exists():
+        site_packages = str(candidate)
+        if site_packages not in sys.path:
+            sys.path.append(site_packages)
+
+
+_bootstrap_site_packages()
 
 import numpy as np
 import torch
@@ -43,9 +57,10 @@ import torch.nn.functional as F
 from scipy.signal import istft, stft
 from torch.utils.data import DataLoader
 
-from module.dataset import EEGPreImageDataset
-from module.eeg_encoder.model import EEGProject
-from module.projector import ProjectorLinear
+if TYPE_CHECKING:
+    from module.dataset import EEGPreImageDataset
+    from module.eeg_encoder.model import EEGProject
+    from module.projector import ProjectorLinear
 
 # ===========================================================================
 # 常量配置（与 Phase 1 保持一致）
@@ -109,50 +124,113 @@ DEFAULT_PHASE1_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "stft_a
 # 振幅扰动核心函数
 # ===========================================================================
 
-def _get_stft_window_band(
+def _build_time_freq_representation(
     eeg: np.ndarray,
     t_start: int,
     t_end: int,
     low_hz: float,
     high_hz: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> dict[str, np.ndarray | tuple | str | int]:
     """
-    内部函数：获取目标时间窗片段的 STFT 结果及频段掩码。
-    返回 (flat, freqs, Zxx, freq_mask)
+    内部函数：获取目标时间窗片段的频域表示及频段掩码。
+
+    当时间窗长度 < STFT_NPERSEG 时，退化为 FFT 路径，保持与 Phase 1 一致。
     """
-    flat    = eeg.reshape(-1, eeg.shape[-1])
+    flat = eeg.reshape(-1, eeg.shape[-1])
     segment = flat[:, t_start:t_end]
-    freqs, _, Zxx = stft(
-        segment, fs=FS, window="hann",
-        nperseg=STFT_NPERSEG, noverlap=STFT_NOVERLAP, nfft=STFT_NFFT, axis=-1,
+    seg_len = segment.shape[-1]
+
+    if seg_len < STFT_NPERSEG:
+        coeffs = np.fft.rfft(segment, axis=-1)
+        freqs = np.fft.rfftfreq(seg_len, d=1.0 / FS)
+        freq_mask = (freqs >= low_hz) & (freqs <= high_hz)
+        return {
+            "mode": "fft",
+            "flat": flat,
+            "coeffs": coeffs,
+            "freq_mask": freq_mask,
+            "seg_len": seg_len,
+            "original_shape": eeg.shape,
+            "t_start": t_start,
+            "t_end": t_end,
+        }
+
+    freqs, _, coeffs = stft(
+        segment,
+        fs=FS,
+        window="hann",
+        nperseg=STFT_NPERSEG,
+        noverlap=STFT_NOVERLAP,
+        nfft=STFT_NFFT,
+        axis=-1,
     )
     freq_mask = (freqs >= low_hz) & (freqs <= high_hz)
-    return flat, freqs, Zxx, freq_mask
+    return {
+        "mode": "stft",
+        "flat": flat,
+        "coeffs": coeffs,
+        "freq_mask": freq_mask,
+        "seg_len": seg_len,
+        "original_shape": eeg.shape,
+        "t_start": t_start,
+        "t_end": t_end,
+    }
 
 
-def _istft_and_fill(
-    flat: np.ndarray,
-    Zxx_modified: np.ndarray,
-    t_start: int,
-    t_end: int,
-    original_shape: tuple,
+def _invert_time_freq_representation(
+    rep: dict[str, np.ndarray | tuple | str | int],
+    coeffs_modified: np.ndarray,
 ) -> np.ndarray:
-    """内部函数：ISTFT 重建并填回原始 EEG。"""
-    _, reconstructed = istft(
-        Zxx_modified, fs=FS, window="hann",
-        nperseg=STFT_NPERSEG, noverlap=STFT_NOVERLAP, nfft=STFT_NFFT,
-        time_axis=-1, freq_axis=-2,
-    )
-    seg_len = t_end - t_start
+    """内部函数：频域重建并填回原始 EEG。"""
+    flat = rep["flat"]
+    t_start = int(rep["t_start"])
+    t_end = int(rep["t_end"])
+    seg_len = int(rep["seg_len"])
+    original_shape = rep["original_shape"]
+    mode = rep["mode"]
+
+    if mode == "fft":
+        reconstructed = np.fft.irfft(coeffs_modified, n=seg_len, axis=-1)
+    else:
+        _, reconstructed = istft(
+            coeffs_modified,
+            fs=FS,
+            window="hann",
+            nperseg=STFT_NPERSEG,
+            noverlap=STFT_NOVERLAP,
+            nfft=STFT_NFFT,
+            time_axis=-1,
+            freq_axis=-2,
+        )
+
     rec_len = reconstructed.shape[-1]
     if rec_len >= seg_len:
         reconstructed = reconstructed[:, :seg_len]
     else:
-        reconstructed = np.pad(reconstructed, ((0,0),(0, seg_len-rec_len)), mode="edge")
+        reconstructed = np.pad(reconstructed, ((0, 0), (0, seg_len - rec_len)), mode="edge")
 
     result = flat.copy()
     result[:, t_start:t_end] = reconstructed.astype(np.float32)
     return result.reshape(original_shape)
+
+
+def _randomize_phase_values(
+    target: np.ndarray,
+    rand_ratio: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """按 rand_ratio 抽样替换相位，振幅保持不变。"""
+    amplitude = np.abs(target)
+    original_phase = np.angle(target)
+    if rand_ratio <= 0.0:
+        return amplitude * np.exp(1j * original_phase)
+    if rand_ratio >= 1.0:
+        selection_mask = np.ones(target.shape, dtype=bool)
+    else:
+        selection_mask = rng.random(target.shape) < rand_ratio
+    random_phase = rng.uniform(0.0, 2 * np.pi, size=target.shape)
+    new_phase = np.where(selection_mask, random_phase, original_phase)
+    return amplitude * np.exp(1j * new_phase)
 
 
 # --- A. 振幅缩放 ---
@@ -177,12 +255,16 @@ def amplitude_scaling(
     t_start, t_end = time_window
     low_hz, high_hz = freq_band
 
-    flat, _, Zxx, freq_mask = _get_stft_window_band(eeg, t_start, t_end, low_hz, high_hz)
-    Zxx_mod = Zxx.copy()
+    rep = _build_time_freq_representation(eeg, t_start, t_end, low_hz, high_hz)
+    coeffs = rep["coeffs"]
+    freq_mask = rep["freq_mask"]
+    coeffs_mod = coeffs.copy()
     # 仅对目标频带缩放振幅，相位保留
-    Zxx_mod[:, freq_mask, :] = np.abs(Zxx[:, freq_mask, :]) * alpha * \
-                                np.exp(1j * np.angle(Zxx[:, freq_mask, :]))
-    return _istft_and_fill(flat, Zxx_mod, t_start, t_end, eeg.shape)
+    if rep["mode"] == "fft":
+        coeffs_mod[:, freq_mask] = coeffs[:, freq_mask] * alpha
+    else:
+        coeffs_mod[:, freq_mask, :] = coeffs[:, freq_mask, :] * alpha
+    return _invert_time_freq_representation(rep, coeffs_mod)
 
 
 # --- B. 相位随机化 ---
@@ -213,19 +295,18 @@ def phase_randomization(
     if rng is None:
         rng = np.random.default_rng(seed=42)
 
-    flat, _, Zxx, freq_mask = _get_stft_window_band(eeg, t_start, t_end, low_hz, high_hz)
-    Zxx_mod = Zxx.copy()
+    rep = _build_time_freq_representation(eeg, t_start, t_end, low_hz, high_hz)
+    coeffs = rep["coeffs"]
+    freq_mask = rep["freq_mask"]
+    coeffs_mod = coeffs.copy()
 
-    target = Zxx[:, freq_mask, :]            # (N, n_freq_masked, n_frames)
-    amplitude = np.abs(target)
-    original_phase = np.angle(target)
-
-    random_phase = rng.uniform(0, 2 * np.pi, size=target.shape)
-    # 线性插值：rand_ratio=0 保持原相位，rand_ratio=1 完全随机
-    mixed_phase = (1 - rand_ratio) * original_phase + rand_ratio * random_phase
-
-    Zxx_mod[:, freq_mask, :] = amplitude * np.exp(1j * mixed_phase)
-    return _istft_and_fill(flat, Zxx_mod, t_start, t_end, eeg.shape)
+    if rep["mode"] == "fft":
+        target = coeffs[:, freq_mask]
+        coeffs_mod[:, freq_mask] = _randomize_phase_values(target, rand_ratio, rng)
+    else:
+        target = coeffs[:, freq_mask, :]
+        coeffs_mod[:, freq_mask, :] = _randomize_phase_values(target, rand_ratio, rng)
+    return _invert_time_freq_representation(rep, coeffs_mod)
 
 
 # --- C. 高斯噪声注入 ---
@@ -255,9 +336,14 @@ def gaussian_noise_injection(
     if rng is None:
         rng = np.random.default_rng(seed=42)
 
-    flat, _, Zxx, freq_mask = _get_stft_window_band(eeg, t_start, t_end, low_hz, high_hz)
-    Zxx_mod = Zxx.copy()
-    target = Zxx[:, freq_mask, :]
+    rep = _build_time_freq_representation(eeg, t_start, t_end, low_hz, high_hz)
+    coeffs = rep["coeffs"]
+    freq_mask = rep["freq_mask"]
+    coeffs_mod = coeffs.copy()
+    if rep["mode"] == "fft":
+        target = coeffs[:, freq_mask]
+    else:
+        target = coeffs[:, freq_mask, :]
 
     # 计算目标区域的信号功率（实部和虚部分别计算）
     signal_power = (np.abs(target) ** 2).mean()
@@ -273,8 +359,11 @@ def gaussian_noise_injection(
     # 向复数 STFT 系数注入复高斯噪声
     noise = rng.normal(0, noise_std, size=target.shape) + \
             1j * rng.normal(0, noise_std, size=target.shape)
-    Zxx_mod[:, freq_mask, :] = target + noise.astype(np.complex64)
-    return _istft_and_fill(flat, Zxx_mod, t_start, t_end, eeg.shape)
+    if rep["mode"] == "fft":
+        coeffs_mod[:, freq_mask] = target + noise.astype(np.complex64)
+    else:
+        coeffs_mod[:, freq_mask, :] = target + noise.astype(np.complex64)
+    return _invert_time_freq_representation(rep, coeffs_mod)
 
 
 # ===========================================================================
@@ -282,6 +371,8 @@ def gaussian_noise_injection(
 # ===========================================================================
 
 def build_dataset(args: argparse.Namespace) -> EEGPreImageDataset:
+    from module.dataset import EEGPreImageDataset
+
     return EEGPreImageDataset(
         subject_ids=[args.subject],
         eeg_data_dir=str(args.eeg_data_dir),
@@ -296,6 +387,9 @@ def build_dataset(args: argparse.Namespace) -> EEGPreImageDataset:
 
 
 def load_models(ckpt: Path, feat_dim: int, device: torch.device):
+    from module.eeg_encoder.model import EEGProject
+    from module.projector import ProjectorLinear
+
     ckpt_data = torch.load(ckpt, map_location=device)
     out_dim, _ = ckpt_data["eeg_projector_state_dict"]["linear.weight"].shape
     model = EEGProject(feature_dim=feat_dim, eeg_sample_points=250,

@@ -68,7 +68,19 @@ def load_csv_rows(path):
     with path.open(encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
 
-def plot_heatmap(data, baseline_top1, out_dir):
+def load_mcnemar_fdr(path):
+    if not path or not path.exists(): return {}
+    sig_map = {}
+    with path.open(encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            cond = r.get("Condition", "")
+            sig = r.get("Significant_FDR_0.05", "False")
+            if cond and sig == "True":
+                sig_map[cond] = True
+    return sig_map
+
+def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
+    if sig_map is None: sig_map = {}
     matrix = np.full((len(TW_ORDER), len(FB_ORDER)), np.nan)
     for i,tw in enumerate(TW_ORDER):
         for j,fb in enumerate(FB_ORDER):
@@ -83,7 +95,11 @@ def plot_heatmap(data, baseline_top1, out_dir):
             v = matrix[i,j]
             if not np.isnan(v):
                 c = "white" if abs(v) > vmax*0.6 else "black"
-                ax.text(j,i,f"{v:+.3f}",ha="center",va="center",fontsize=9,color=c,fontweight="bold")
+                text_str = f"{v:+.3f}"
+                cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
+                if sig_map.get(cond_name):
+                    text_str += "\n*"
+                ax.text(j,i,text_str,ha="center",va="center",fontsize=9,color=c,fontweight="bold")
             else:
                 ax.text(j,i,"N/A",ha="center",va="center",fontsize=8,color="gray")
     top_val = np.nanmax(matrix) if not np.all(np.isnan(matrix)) else 0
@@ -99,6 +115,7 @@ def plot_heatmap(data, baseline_top1, out_dir):
     cb.set_label("Top-1 Accuracy Drop  (higher = more important)", fontsize=10)
     bl = f"  [Baseline Top-1: {baseline_top1:.4f}]" if baseline_top1 else ""
     ax.set_title(f"Phase 1: STFT Temporal Ablation — Top-1 Accuracy Drop Heatmap{bl}\n"
+                 "* p_FDR < 0.05 (McNemar)\n"
                  "(NeuroBridge sub-08 | THINGS-EEG2 | Cichy 2014 / Thorpe 1996 time windows)",
                  fontsize=10, fontweight="bold")
     ax.set_xlabel("Frequency Band  [Fries 2015: gamma=feedforward, beta=feedback]", fontsize=9)
@@ -269,6 +286,8 @@ def parse_args():
                         help="要可视化的阶段 (1 / 2 / 12=两者都画)")
     parser.add_argument("--phase1-csv", type=Path, default=PHASE1_CSV)
     parser.add_argument("--phase2-csv", type=Path, default=PHASE2_CSV)
+    parser.add_argument("--mcnemar-csv", type=Path, default=None,
+                        help="Path to mcnemar_fdr_results.csv")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     return parser.parse_args()
 
@@ -281,8 +300,9 @@ def main():
         print("\n--- Phase 1 Figures ---")
         data, baseline_top1 = load_phase1(args.phase1_csv)
         rows_p1 = load_csv_rows(args.phase1_csv)
+        sig_map = load_mcnemar_fdr(args.mcnemar_csv) if args.mcnemar_csv else {}
         if data:
-            plot_heatmap(data, baseline_top1, args.output_dir)
+            plot_heatmap(data, baseline_top1, args.output_dir, sig_map=sig_map)
         else:
             print("  [Skip Fig1] Phase 1 CSV not found or empty")
         if rows_p1:

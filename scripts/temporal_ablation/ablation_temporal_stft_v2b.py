@@ -360,6 +360,7 @@ def retrieval_metrics(
         "top5":        float((ranks <= 5).float().mean()),
         "mean_rank":   float(ranks.float().mean()),
         "median_rank": float(ranks.float().median()),
+        "raw_preds":   (ranks <= 1).tolist(),
     }
 
 
@@ -487,6 +488,7 @@ def run_phase3(
             "median_rank": metrics["median_rank"],
             "top1_drop":   None if name == "baseline" else round(baseline_metrics["top1"] - metrics["top1"], 4),
             "top5_drop":   None if name == "baseline" else round(baseline_metrics["top5"] - metrics["top5"], 4),
+            "raw_preds":   metrics["raw_preds"],
         }
         results_p3.append(result)
 
