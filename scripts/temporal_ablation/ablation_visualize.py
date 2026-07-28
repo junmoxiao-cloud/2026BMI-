@@ -33,7 +33,7 @@ PHASE1_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "stft_ablation_
 PHASE2_CSV = SCRIPT_DIR / "results" / "temporal_amplitude_ablation" / "amplitude_ablation_results.csv"
 PHASE3_CSV = SCRIPT_DIR / "results" / "phase3_full_freq_masking" / "phase3_window_masking_results.csv"
 MCNEMAR_CSV = SCRIPT_DIR / "results" / "temporal_stft_ablation" / "mcnemar_fdr_results.csv"
-OUTPUT_DIR = SCRIPT_DIR / "results" / "figures"
+OUTPUT_DIR = SCRIPT_DIR.parent.parent / "assets" / "temporal_ablation"
 
 TW_ORDER = ["T0_0-50ms","T1_50-150ms","T2_150-300ms","T3_300-500ms","T4_500-800ms"]
 FB_ORDER = ["delta","theta","alpha","beta","low_gamma","gamma","high_gamma"]
