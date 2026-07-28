@@ -148,6 +148,7 @@ NeuroBridge（Zhang et al., 2025）是当前 EEG-to-Image 解码的最优模型�
 > 200-way retrieval，n=200，精度粒度 = 0.005（1个样本）。
 > 建议以 **Δ ≥ 0.020**（≥4个样本）作为有效效应阈值；Δ < 0.020 视为测量噪声。
 > 按此标准，Gamma 相关所有条件均无效，alpha 和 beta 的结论稳健。
+> **显著性检验与校正**：采用 McNemar 检验，并在离散独立条件（Phase 1 和 Phase 3）中应用 FDR (BH) 多重比较校正 ($q < 0.05$)。对于 Phase 2 连续参数扰动（如折线图），因数据点存在强序列相关性，直接采用原始 McNemar 检验 ($p < 0.05$)，以避免过度校正。详情见 `Statistical_Analysis_Report.md`。
 
 ---
 
