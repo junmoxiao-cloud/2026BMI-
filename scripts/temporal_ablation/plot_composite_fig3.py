@@ -45,10 +45,24 @@ def load_mcnemar_fdr(path):
     with path.open(encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             cond = r.get("Condition", "")
-            sig = r.get("Significant_FDR_0.05", "False")
-            if cond and sig == "True":
-                sig_map[cond] = True
+            if cond:
+                try:
+                    p_raw = float(r.get("p_value_raw", 1.0))
+                    p_fdr = float(r.get("p_value_fdr", 1.0))
+                    sig_map[cond] = {"p_raw": p_raw, "p_fdr": p_fdr}
+                except ValueError:
+                    pass
     return sig_map
+
+def get_sig_asterisks(cond_info):
+    if not cond_info: return ""
+    p = cond_info.get("p_raw", 1.0)
+    q = cond_info.get("p_fdr", 1.0)
+    if p < 0.05 and q < 0.05:
+        return "**"
+    elif p < 0.05:
+        return "*"
+    return ""
 
 def load_phase1_data(rows):
     data = {}
@@ -64,7 +78,7 @@ def load_phase1_data(rows):
             except: pass
     return data, baseline
 
-def plot_panel_A_phase3(ax, rows):
+def plot_panel_A_phase3(ax, rows, sig_map):
     """Panel A: Phase 3 结果（使用 full_freq 数据，画柱状图）"""
     valid = [r for r in rows if r.get("time_window") in TW_ORDER and r.get("top1_drop") not in ("","None",None)]
     if not valid:
@@ -81,8 +95,15 @@ def plot_panel_A_phase3(ax, rows):
     ax.bar(x, d1, color="#8E44AD", alpha=0.85, width=0.5)
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     
-    for i, v in enumerate(d1):
-        ax.text(i, v + 0.005 if v >= 0 else v - 0.015, f"{v:.3f}", ha="center", fontsize=9, fontweight="bold")
+    for i, r in enumerate(valid):
+        v = d1[i]
+        cond = "Phase3_" + r["name"]
+        ast = get_sig_asterisks(sig_map.get(cond))
+        text_str = f"{v:.3f}"
+        if ast:
+            text_str += f"\n{ast}"
+        y_pos = v + 0.005 if v >= 0 else v - 0.015
+        ax.text(i, y_pos, text_str, ha="center", va="bottom" if v >= 0 else "top", fontsize=9, fontweight="bold")
         
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=9, rotation=15, ha="right")
@@ -114,8 +135,9 @@ def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
                 c = "white" if abs(v) > vmax*0.6 else "black"
                 text_str = f"{v:+.3f}"
                 cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
-                if sig_map.get(cond_name):
-                    text_str += "\n*"
+                ast = get_sig_asterisks(sig_map.get(cond_name))
+                if ast:
+                    text_str += f"\n{ast}"
                 ax.text(j, i, text_str, ha="center", va="center", fontsize=8, color=c, fontweight="bold")
             else:
                 ax.text(j, i, "N/A", ha="center", va="center", fontsize=7, color="gray")
@@ -125,6 +147,13 @@ def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
         for j in range(len(FB_ORDER)):
             if not np.isnan(matrix[i,j]) and matrix[i,j] >= top_val*0.9:
                 ax.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, fill=False, edgecolor="gold", linewidth=2))
+            cond_name = f"{TW_ORDER[i]}__{FB_ORDER[j]}"
+            cond_info = sig_map.get(cond_name)
+            if cond_info:
+                p = cond_info.get("p_raw", 1.0)
+                q = cond_info.get("p_fdr", 1.0)
+                if p < 0.05 and q < 0.05:
+                    ax.add_patch(plt.Rectangle((j-0.5, i-0.5), 1, 1, fill=False, edgecolor="black", linewidth=3))
                 
     ax.set_xticks(range(len(FB_ORDER)))
     ax.set_xticklabels([FB_LABELS[fb].replace("\n", " ") for fb in FB_ORDER], fontsize=8, rotation=20, ha="right")
@@ -135,9 +164,9 @@ def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
     cb.set_label("Top-1 Acc Drop", fontsize=9)
     
     bl = f" [Baseline: {baseline_top1:.4f}]" if baseline_top1 else ""
-    ax.set_title(f"B. Phase 1: STFT Top-1 Drop Heatmap{bl}", fontsize=12, fontweight="bold")
+    ax.set_title(f"B. Phase 1: STFT Top-1 Drop Heatmap{bl}\n* p < 0.05 (Uncorrected) | ** q < 0.05 (FDR Corrected)", fontsize=12, fontweight="bold")
 
-def plot_panel_C_top10(ax, rows):
+def plot_panel_C_top10(ax, rows, sig_map):
     """Panel C: Phase 1 Top-10 柱状图"""
     valid = [r for r in rows
              if r.get("name") not in ("baseline","full_mask_all","random_control","")
@@ -158,6 +187,15 @@ def plot_panel_C_top10(ax, rows):
     w = 0.35
     ax.bar(x - w/2, d1, w, label="Top-1 Drop", color="#E74C3C", alpha=0.85)
     ax.bar(x + w/2, d5, w, label="Top-5 Drop", color="#3498DB", alpha=0.85)
+    
+    for i, r in enumerate(valid):
+        cond = r["name"]
+        ast = get_sig_asterisks(sig_map.get(cond))
+        if ast:
+            v = d1[i]
+            y_pos = v + 0.01 if v >= 0 else v - 0.02
+            ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if v >= 0 else "top", fontsize=12, fontweight="bold", color="black")
+
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     
     ax.set_xticks(x)
@@ -167,7 +205,7 @@ def plot_panel_C_top10(ax, rows):
     ax.legend(fontsize=9)
     ax.grid(axis="y", alpha=0.3)
 
-def plot_panel_D_phase2(ax, rows):
+def plot_panel_D_phase2(ax, rows, sig_map):
     """Panel D: Phase 2 扰动总结（对应 fig6）"""
     conds = sorted(set(r["condition"] for r in rows if r.get("condition")))
     if not conds:
@@ -188,7 +226,24 @@ def plot_panel_D_phase2(ax, rows):
         for cond in conds:
             m = [r for r in rows if r["condition"] == cond and r["perturbation"] == pt
                  and abs(float(r["param_value"]) - ep) < 0.01]
-            drops.append(float(m[0]["top1_drop"]) if m else 0.0)
+            drop_val = float(m[0]["top1_drop"]) if m else 0.0
+            drops.append(drop_val)
+            
+            if m:
+                cond_name = ""
+                if pt == "scaling":
+                    cond_name = f"{cond}_scaling_alpha={ep}"
+                elif pt == "phase_rand":
+                    cond_name = f"{cond}_phase_rand_rand_ratio={ep}"
+                elif pt == "gaussian_noise":
+                    cond_name = f"{cond}_gaussian_noise_snr_db={ep}"
+                
+                ast = get_sig_asterisks(sig_map.get(cond_name))
+                if ast:
+                    bar_idx = conds.index(cond)
+                    bar_x = x[bar_idx] + (pi - 1) * w
+                    y_pos = drop_val + 0.01 if drop_val >= 0 else drop_val - 0.02
+                    ax.text(bar_x, y_pos, ast, ha="center", va="bottom" if drop_val >= 0 else "top", fontsize=10, fontweight="bold", color="black", zorder=10)
         ax.bar(x + (pi - 1) * w, drops, w, label=pl, color=COLORS[pi], alpha=0.85)
         
     ax.set_xticks(x)
@@ -215,16 +270,16 @@ def main():
     fig = plt.figure(figsize=(18, 12))
     
     axA = plt.subplot(2, 2, 1)
-    plot_panel_A_phase3(axA, p3_rows)
+    plot_panel_A_phase3(axA, p3_rows, sig_map)
     
     axB = plt.subplot(2, 2, 2)
     plot_panel_B_heatmap(axB, p1_data, p1_base, sig_map)
     
     axC = plt.subplot(2, 2, 3)
-    plot_panel_C_top10(axC, p1_rows)
+    plot_panel_C_top10(axC, p1_rows, sig_map)
     
     axD = plt.subplot(2, 2, 4)
-    plot_panel_D_phase2(axD, p2_rows)
+    plot_panel_D_phase2(axD, p2_rows, sig_map)
     
     plt.tight_layout(pad=3.0)
     plt.savefig(out_file, dpi=300, bbox_inches="tight")
