@@ -32,6 +32,11 @@ ablation_temporal_amplitude.py — Phase 2: Amplitude Perturbation Ablation
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+sys.path.append(r"D:\NEOschool\eegtoimage\NeuroBridge-main")
+
 import argparse
 import csv
 import json
@@ -67,7 +72,7 @@ if TYPE_CHECKING:
 # ===========================================================================
 
 SCRIPT_DIR   = Path(__file__).resolve().parent
-DEFAULT_DATA  = SCRIPT_DIR / "data"
+DEFAULT_DATA  = Path(r"D:\NEOschool\eegtoimage\NeuroBridge-main\data")
 FS           = 250.0
 
 SELECTED_CHANNELS = [
@@ -493,7 +498,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--checkpoint", type=Path,
-        default=SCRIPT_DIR / "intra-subjects_sub-08_checkpoint_last.pth",
+        default=Path(r"D:\NEOschool\eegtoimage\NeuroBridge-main\intra-subjects_sub-08_checkpoint_last.pth"),
     )
     parser.add_argument(
         "--eeg-data-dir", type=Path,
@@ -506,7 +511,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--aug-feature-dir",
         type=Path,
-        default=SCRIPT_DIR / "data" / "things_eeg" / "image_feature" / "RN50" / "GaussianBlur-GaussianNoise-LowResolution-Mosaic",
+        default=DEFAULT_DATA / "things_eeg" / "image_feature" / "RN50" / "GaussianBlur-GaussianNoise-LowResolution-Mosaic",
         help="aug image feature dir (same as evaluate.py aug_feature_dir)",
     )
     parser.add_argument(
