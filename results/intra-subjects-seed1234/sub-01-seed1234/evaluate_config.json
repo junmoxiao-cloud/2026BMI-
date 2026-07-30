@@ -1,0 +1,7 @@
+{
+    "eeg_encoder_type": "EEGProject",
+    "eeg_data_dir": "D:\\NEOschool\\eegtoimage\\NeuroBridge-main\\data\\things_eeg\\preprocessed_eeg",
+    "image_feature_dir": "D:\\NEOschool\\eegtoimage\\NeuroBridge-main\\data\\things_eeg\\image_feature\\RN50",
+    "eeg_sample_points": 250,
+    "feature_dim": 1024
+}
