@@ -1,0 +1,274 @@
+"""
+Replace zeroed-band bins in band-zeroed sub-08 EEG with power-matched Gaussian noise.
+
+Pipeline (REPLACE, not add-on-top of original):
+  1) Load already band-zeroed EEG  (sub-08-zero-bands/sub-08-<band>/)
+  2) Load original band amplitude & phase
+       (amplitude&phase(orignal)_out/sub-08/{train|test}/)
+  3) Reconstruct original complex coeffs:  S = A * exp(j * phi)
+  4) Estimate μ, σ of real/imag of S (per trial/channel)
+  5) Draw complex noise with same #bins: Re,Im ~ N(μ, σ)
+  6) Scale noise so mean(|N|^2) == mean(|S|^2)  (power match)
+  7) rFFT(zeroed EEG) → write N into that band's bins → irFFT
+  8) Save replaced EEG
+
+Output:
+  data/gaussian-noise_out/sub-08/<band>/{train,test}.npy
+
+Run:
+  conda activate neurobridge
+  cd d:\\git\\NeuroBridge
+  python data/gaussian-noise
+  python data/gaussian-noise --bands alpha --splits test
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+
+import numpy as np
+
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+EEG_BANDS: dict[str, tuple[float, float]] = {
+    "delta": (0.5, 4.0),
+    "theta": (4.0, 8.0),
+    "alpha": (8.0, 13.0),
+    "beta": (13.0, 30.0),
+    "low_gamma": (30.0, 45.0),
+    "gamma": (45.0, 70.0),
+    "high_gamma": (70.0, 100.0),
+}
+
+BAND_NAMES = list(EEG_BANDS.keys())
+
+# folder name under sub-08-zero-bands/
+ZERO_DIR_NAME = {
+    "delta": "sub-08-delta",
+    "theta": "sub-08-theta",
+    "alpha": "sub-08-alpha",
+    "beta": "sub-08-beta",
+    "low_gamma": "sub-08-low-gamma",
+    "gamma": "sub-08-gamma",
+    "high_gamma": "sub-08-high-gamma",
+}
+
+
+def band_mask(freqs: np.ndarray, f_lo: float, f_hi: float) -> np.ndarray:
+    return (freqs >= f_lo) & (freqs < f_hi)
+
+
+def complex_from_amp_phase(amp: np.ndarray, phase: np.ndarray) -> np.ndarray:
+    """S = A * exp(j * phi)."""
+    return amp.astype(np.float64) * np.exp(1j * phase.astype(np.float64))
+
+
+def power_matched_noise_from_original_S(
+    S: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Build complex noise with:
+      - same shape / #bins as S
+      - Re, Im ~ N(μ, σ) where μ,σ estimated from Re/Im of S
+      - mean(|N|^2) == mean(|S|^2) along the bin axis
+    S: (..., n_bins) complex
+    """
+    re = S.real
+    im = S.imag
+    pooled = np.concatenate([re, im], axis=-1)
+    mu = pooled.mean(axis=-1, keepdims=True)
+    sigma = pooled.std(axis=-1, keepdims=True)
+    sigma = np.maximum(sigma, 1e-12)
+
+    new_re = rng.normal(loc=mu, scale=sigma, size=re.shape)
+    new_im = rng.normal(loc=mu, scale=sigma, size=im.shape)
+    noise = new_re + 1j * new_im
+
+    # Power match: P = mean(|S|^2), scale N so mean(|N|^2) = P
+    p_orig = np.mean(np.abs(S) ** 2, axis=-1, keepdims=True)
+    p_noise = np.mean(np.abs(noise) ** 2, axis=-1, keepdims=True)
+    p_noise = np.maximum(p_noise, 1e-12)
+    scale = np.sqrt(p_orig / p_noise)
+    return noise * scale
+
+
+def replace_zeroed_band_with_noise(
+    zeroed_eeg: np.ndarray,
+    amp: np.ndarray,
+    phase: np.ndarray,
+    sfreq: float,
+    band_name: str,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    zeroed_eeg: (..., T) already band-zeroed time signal
+    amp, phase: (..., n_bins) original band amplitude/phase
+    """
+    f_lo, f_hi = EEG_BANDS[band_name]
+    x = np.asarray(zeroed_eeg, dtype=np.float64)
+    spectrum = np.fft.rfft(x, axis=-1)
+    freqs = np.fft.rfftfreq(x.shape[-1], d=1.0 / sfreq)
+    mask = band_mask(freqs, f_lo, f_hi)
+    n_bins = int(mask.sum())
+    if amp.shape[-1] != n_bins or phase.shape[-1] != n_bins:
+        raise ValueError(
+            f"{band_name}: amp/phase last dim {amp.shape[-1]} != FFT bins {n_bins}"
+        )
+
+    S = complex_from_amp_phase(amp, phase)
+    noise = power_matched_noise_from_original_S(S, rng)
+
+    # REPLACE zeroed bins (do not add to original non-zeroed signal)
+    spectrum[..., mask] = noise
+
+    if mask[0]:
+        spectrum[..., 0] = spectrum[..., 0].real
+    if x.shape[-1] % 2 == 0 and mask[-1]:
+        spectrum[..., -1] = spectrum[..., -1].real
+
+    return np.fft.irfft(spectrum, n=x.shape[-1], axis=-1)
+
+
+def process_split_chunked(
+    zeroed_path: str,
+    amp_path: str,
+    phase_path: str,
+    out_path: str,
+    band_name: str,
+    sfreq: float,
+    rng: np.random.Generator,
+    chunk_size: int,
+) -> dict:
+    print(f"  zeroed : {zeroed_path}")
+    print(f"  amp    : {amp_path}")
+    print(f"  phase  : {phase_path}")
+
+    zeroed = np.load(zeroed_path, mmap_mode="r")
+    amp = np.load(amp_path, mmap_mode="r")
+    phase = np.load(phase_path, mmap_mode="r")
+
+    if zeroed.shape[:-1] != amp.shape[:-1] or zeroed.shape[:-1] != phase.shape[:-1]:
+        raise ValueError(
+            f"Shape mismatch: zeroed{zeroed.shape} amp{amp.shape} phase{phase.shape}"
+        )
+
+    n0 = zeroed.shape[0]
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    tmp_path = out_path + ".tmp.npy"
+    out_mm = np.lib.format.open_memmap(
+        tmp_path, mode="w+", dtype=zeroed.dtype, shape=zeroed.shape
+    )
+    try:
+        for start in range(0, n0, chunk_size):
+            end = min(start + chunk_size, n0)
+            out = replace_zeroed_band_with_noise(
+                zeroed[start:end],
+                amp[start:end],
+                phase[start:end],
+                sfreq=sfreq,
+                band_name=band_name,
+                rng=rng,
+            )
+            out_mm[start:end] = out.astype(zeroed.dtype, copy=False)
+            print(f"    {band_name}: rows {start}:{end}/{n0}")
+        out_mm.flush()
+    finally:
+        del out_mm
+    os.replace(tmp_path, out_path)
+    print(f"  saved  : {out_path}  shape={list(zeroed.shape)}")
+
+    return {
+        "zeroed_shape": list(zeroed.shape),
+        "amp_shape": list(amp.shape),
+        "out_shape": list(zeroed.shape),
+        "out_file": out_path,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Inject power-matched Gaussian noise into band-zeroed sub-08 EEG (replace)"
+    )
+    parser.add_argument("--sub_id", type=int, default=8)
+    parser.add_argument(
+        "--zero_root",
+        default=os.path.join(_REPO_ROOT, "data", "things_eeg", "sub-08-zero-bands"),
+        help="contains sub-08-<band>/{train,test}.npy",
+    )
+    parser.add_argument(
+        "--amp_phase_root",
+        default=os.path.join(_REPO_ROOT, "data", "amplitude&phase(orignal)_out"),
+        help="contains sub-XX/{train,test}/{band}_amplitude.npy etc.",
+    )
+    parser.add_argument(
+        "--out_dir",
+        default=os.path.join(_REPO_ROOT, "data", "gaussian-noise_out"),
+    )
+    parser.add_argument("--bands", nargs="+", default=BAND_NAMES, choices=BAND_NAMES)
+    parser.add_argument("--splits", nargs="+", default=["test", "train"], choices=["train", "test"])
+    parser.add_argument("--sfreq", type=float, default=250.0)
+    parser.add_argument("--seed", type=int, default=2025)
+    parser.add_argument("--chunk_size", type=int, default=100)
+    args = parser.parse_args()
+
+    sub = f"sub-{args.sub_id:02d}"
+    amp_sub = os.path.join(args.amp_phase_root, sub)
+    out_sub = os.path.join(args.out_dir, sub)
+    os.makedirs(out_sub, exist_ok=True)
+
+    rng = np.random.default_rng(args.seed)
+    print(f"sub={sub}  seed={args.seed}  sfreq={args.sfreq}")
+    print(f"zero_root={args.zero_root}")
+    print(f"amp_phase={amp_sub}")
+    print(f"out_dir={out_sub}")
+    print("mode=REPLACE zeroed-band bins with power-matched N(μ,σ) noise")
+
+    meta = {
+        "subject": sub,
+        "seed": args.seed,
+        "sfreq": args.sfreq,
+        "method": (
+            "On band-zeroed EEG: rFFT → replace target bins with complex noise; "
+            "Re/Im ~ N(μ,σ) from original S=A*exp(jφ); scale so mean(|N|^2)=mean(|S|^2); irFFT."
+        ),
+        "bands": {},
+    }
+
+    for band in args.bands:
+        zero_dir = os.path.join(args.zero_root, ZERO_DIR_NAME[band])
+        print(f"\n===== band={band}  zero_dir={zero_dir} =====")
+        if not os.path.isdir(zero_dir):
+            print("  SKIP: missing zeroed folder")
+            continue
+
+        band_meta = {}
+        for split in args.splits:
+            zpath = os.path.join(zero_dir, f"{split}.npy")
+            apath = os.path.join(amp_sub, split, f"{band}_amplitude.npy")
+            ppath = os.path.join(amp_sub, split, f"{band}_phase.npy")
+            opath = os.path.join(out_sub, band, f"{split}.npy")
+
+            missing = [p for p in (zpath, apath, ppath) if not os.path.isfile(p)]
+            if missing:
+                print(f"  SKIP {split}: missing {missing}")
+                continue
+
+            chunk = args.chunk_size if split == "train" else max(args.chunk_size, 200)
+            band_meta[split] = process_split_chunked(
+                zpath, apath, ppath, opath, band, args.sfreq, rng, chunk
+            )
+        meta["bands"][band] = band_meta
+
+    meta_path = os.path.join(out_sub, "meta.json")
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+    print(f"\nSaved {meta_path}")
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

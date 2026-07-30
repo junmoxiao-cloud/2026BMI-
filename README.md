@@ -2,12 +2,12 @@
 
 Contact Email: dou12345622@qq.com
 
-## NeuroBridge frequency-band zero ablation (sub-08)
+## NeuroBridge frequency-band ablation (sub-08)
 
 See [`NeuroBridge_freq_band_zero/`](./NeuroBridge_freq_band_zero/) for:
 
-- evaluation code (`acc_zero-bands`, Fourier band erase)
-- Top-1 / Top-5 results CSV + figure
+- band zero / amp-phase / power-matched Gaussian noise-replace scripts
+- Top-1 / Top-5: original vs zero vs noise-replace (CSV + figures)
 - sub-08 EEG-to-image checkpoint
 
-Large zeroed EEG `.npy` files (~34 GB) are **not** stored here; regenerate with the included script or add an external download link in that folder’s README.
+Large EEG `.npy` packs (zeroed / noise-replaced, tens of GB) are **not** stored here; regenerate with the included scripts (see that folder’s README).
