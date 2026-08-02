@@ -1,0 +1,54 @@
+{
+    "device": "cuda:0",
+    "num_epochs": 50,
+    "batch_size": 1024,
+    "learning_rate": 0.0001,
+    "output_dir": "./autodl-tmp/results/things_eeg/inter-subjects",
+    "output_name": "sub-01",
+    "train_subject_ids": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ],
+    "test_subject_ids": [
+        1
+    ],
+    "data_average": true,
+    "data_random": false,
+    "init_temperature": 0.07,
+    "t_learnable": false,
+    "softplus": true,
+    "alpha": 1.0,
+    "beta": 1.0,
+    "img_l2norm": true,
+    "text_l2norm": false,
+    "eeg_l2norm": false,
+    "eeg_data_dir": "/root/autodl-tmp/data/things_eeg/preprocessed_eeg",
+    "selected_channels": [],
+    "time_window": [
+        0,
+        250
+    ],
+    "eeg_aug": true,
+    "eeg_aug_type": "smooth",
+    "eeg_encoder_type": "TSConv",
+    "image_aug": true,
+    "image_test_aug": true,
+    "eeg_test_aug": false,
+    "frozen_eeg_prior": true,
+    "projector": "linear",
+    "feature_dim": 512,
+    "image_feature_dir": "/root/autodl-tmp/data/things_eeg/image_feature/RN50",
+    "aug_image_feature_dirs": [
+        "/root/autodl-tmp/data/things_eeg/image_feature/RN50/GaussianBlur-GaussianNoise-LowResolution-Mosaic"
+    ],
+    "text_feature_dir": "",
+    "save_weights": true,
+    "seed": 2025
+}

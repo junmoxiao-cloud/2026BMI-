@@ -1,0 +1,173 @@
+2026-07-27 08:41:55 - INFO - Input arguments:
+2026-07-27 08:41:55 - INFO - device                 cuda:0
+2026-07-27 08:41:55 - INFO - num_epochs             50
+2026-07-27 08:41:55 - INFO - batch_size             1024
+2026-07-27 08:41:55 - INFO - learning_rate          0.0001
+2026-07-27 08:41:55 - INFO - output_dir             ./autodl-tmp/results/things_eeg/inter-subjects
+2026-07-27 08:41:55 - INFO - output_name            sub-09
+2026-07-27 08:41:55 - INFO - train_subject_ids      [1, 2, 3, 4, 5, 6, 7, 8, 10]
+2026-07-27 08:41:55 - INFO - test_subject_ids       [9]
+2026-07-27 08:41:55 - INFO - data_average           True
+2026-07-27 08:41:55 - INFO - data_random            False
+2026-07-27 08:41:55 - INFO - init_temperature       0.07
+2026-07-27 08:41:55 - INFO - t_learnable            False
+2026-07-27 08:41:55 - INFO - softplus               True
+2026-07-27 08:41:55 - INFO - alpha                  1.0
+2026-07-27 08:41:55 - INFO - beta                   1.0
+2026-07-27 08:41:55 - INFO - img_l2norm             True
+2026-07-27 08:41:55 - INFO - text_l2norm            False
+2026-07-27 08:41:55 - INFO - eeg_l2norm             False
+2026-07-27 08:41:55 - INFO - eeg_data_dir           /root/autodl-tmp/data/things_eeg/preprocessed_eeg
+2026-07-27 08:41:55 - INFO - selected_channels      []
+2026-07-27 08:41:55 - INFO - time_window            [0, 250]
+2026-07-27 08:41:55 - INFO - eeg_aug                True
+2026-07-27 08:41:55 - INFO - eeg_aug_type           smooth
+2026-07-27 08:41:55 - INFO - eeg_encoder_type       TSConv
+2026-07-27 08:41:55 - INFO - image_aug              True
+2026-07-27 08:41:55 - INFO - image_test_aug         True
+2026-07-27 08:41:55 - INFO - eeg_test_aug           False
+2026-07-27 08:41:55 - INFO - frozen_eeg_prior       True
+2026-07-27 08:41:55 - INFO - projector              linear
+2026-07-27 08:41:55 - INFO - feature_dim            512
+2026-07-27 08:41:55 - INFO - image_feature_dir      /root/autodl-tmp/data/things_eeg/image_feature/RN50
+2026-07-27 08:41:55 - INFO - aug_image_feature_dirs ['/root/autodl-tmp/data/things_eeg/image_feature/RN50/GaussianBlur-GaussianNoise-LowResolution-Mosaic']
+2026-07-27 08:41:55 - INFO - text_feature_dir       
+2026-07-27 08:41:55 - INFO - save_weights           True
+2026-07-27 08:41:55 - INFO - seed                   2025
+2026-07-27 08:41:55 - INFO - Using device: cuda:0
+2026-07-27 10:04:31 - INFO - EEG sample points: 250
+2026-07-27 10:04:31 - INFO - feature dimension: 1024
+2026-07-27 10:04:31 - INFO - data length: 148860
+2026-07-27 10:04:31 - INFO - number of channels: 63
+2026-07-27 10:04:33 - INFO - EEG Encoder trainable parameters: 2.63M
+2026-07-27 10:04:33 - INFO - TSConv(
+  (tsconv): Sequential(
+    (0): Conv2d(1, 40, kernel_size=(1, 25), stride=(1, 1))
+    (1): AvgPool2d(kernel_size=(1, 51), stride=(1, 5), padding=0)
+    (2): BatchNorm2d(40, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (3): ELU(alpha=1.0)
+    (4): Conv2d(40, 40, kernel_size=(63, 1), stride=(1, 1))
+    (5): BatchNorm2d(40, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ELU(alpha=1.0)
+    (7): Dropout(p=0.5, inplace=False)
+  )
+  (projection): Conv2d(40, 40, kernel_size=(1, 1), stride=(1, 1))
+  (proj_eeg): Sequential(
+    (0): Linear(in_features=1440, out_features=1024, bias=True)
+    (1): ResidualAdd(
+      (f): Sequential(
+        (0): GELU(approximate='none')
+        (1): Linear(in_features=1024, out_features=1024, bias=True)
+        (2): Dropout(p=0.5, inplace=False)
+      )
+    )
+    (2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+  )
+)
+2026-07-27 10:04:33 - INFO - Projector trainable parameters: 1.57M
+2026-07-27 10:04:33 - INFO - ContrastiveLoss(
+  (criterion_cls): CrossEntropyLoss()
+  (criterion_mse): MSELoss()
+  (softplus): Softplus(beta=1.0, threshold=20.0)
+)
+2026-07-27 10:05:03 - INFO - Epoch [1/50] Train Loss: 6.5524
+2026-07-27 10:05:03 - INFO - top5 acc 23.00%	top1 acc 2.50%	Test Loss: 4.3119
+2026-07-27 10:05:33 - INFO - Epoch [2/50] Train Loss: 5.9211
+2026-07-27 10:05:33 - INFO - top5 acc 28.50%	top1 acc 12.50%	Test Loss: 3.9239
+2026-07-27 10:06:02 - INFO - Epoch [3/50] Train Loss: 5.6752
+2026-07-27 10:06:02 - INFO - top5 acc 32.50%	top1 acc 14.50%	Test Loss: 3.7790
+2026-07-27 10:06:32 - INFO - Epoch [4/50] Train Loss: 5.5104
+2026-07-27 10:06:32 - INFO - top5 acc 36.50%	top1 acc 16.00%	Test Loss: 3.6027
+2026-07-27 10:07:02 - INFO - Epoch [5/50] Train Loss: 5.3862
+2026-07-27 10:07:03 - INFO - top5 acc 40.00%	top1 acc 18.50%	Test Loss: 3.4744
+2026-07-27 10:07:33 - INFO - Epoch [6/50] Train Loss: 5.2973
+2026-07-27 10:07:34 - INFO - top5 acc 42.00%	top1 acc 19.00%	Test Loss: 3.4316
+2026-07-27 10:08:04 - INFO - Epoch [7/50] Train Loss: 5.2298
+2026-07-27 10:08:04 - INFO - top5 acc 44.50%	top1 acc 20.00%	Test Loss: 3.3880
+2026-07-27 10:08:34 - INFO - Epoch [8/50] Train Loss: 5.1697
+2026-07-27 10:08:34 - INFO - top5 acc 42.00%	top1 acc 18.00%	Test Loss: 3.4108
+2026-07-27 10:09:03 - INFO - Epoch [9/50] Train Loss: 5.1113
+2026-07-27 10:09:03 - INFO - top5 acc 47.00%	top1 acc 21.50%	Test Loss: 3.3712
+2026-07-27 10:09:33 - INFO - Epoch [10/50] Train Loss: 5.0532
+2026-07-27 10:09:33 - INFO - top5 acc 46.00%	top1 acc 19.50%	Test Loss: 3.3566
+2026-07-27 10:10:02 - INFO - Epoch [11/50] Train Loss: 5.0011
+2026-07-27 10:10:02 - INFO - top5 acc 47.50%	top1 acc 20.00%	Test Loss: 3.3658
+2026-07-27 10:10:31 - INFO - Epoch [12/50] Train Loss: 4.9481
+2026-07-27 10:10:31 - INFO - top5 acc 44.00%	top1 acc 21.00%	Test Loss: 3.3112
+2026-07-27 10:11:00 - INFO - Epoch [13/50] Train Loss: 4.9075
+2026-07-27 10:11:00 - INFO - top5 acc 47.00%	top1 acc 20.00%	Test Loss: 3.2636
+2026-07-27 10:11:30 - INFO - Epoch [14/50] Train Loss: 4.8585
+2026-07-27 10:11:30 - INFO - top5 acc 45.50%	top1 acc 19.50%	Test Loss: 3.2559
+2026-07-27 10:12:00 - INFO - Epoch [15/50] Train Loss: 4.8169
+2026-07-27 10:12:00 - INFO - top5 acc 47.00%	top1 acc 18.50%	Test Loss: 3.2635
+2026-07-27 10:12:29 - INFO - Epoch [16/50] Train Loss: 4.7749
+2026-07-27 10:12:29 - INFO - top5 acc 49.00%	top1 acc 20.50%	Test Loss: 3.2222
+2026-07-27 10:12:58 - INFO - Epoch [17/50] Train Loss: 4.7289
+2026-07-27 10:12:58 - INFO - top5 acc 50.50%	top1 acc 20.00%	Test Loss: 3.1466
+2026-07-27 10:13:28 - INFO - Epoch [18/50] Train Loss: 4.6860
+2026-07-27 10:13:28 - INFO - top5 acc 46.00%	top1 acc 18.00%	Test Loss: 3.2620
+2026-07-27 10:13:57 - INFO - Epoch [19/50] Train Loss: 4.6444
+2026-07-27 10:13:57 - INFO - top5 acc 47.00%	top1 acc 16.50%	Test Loss: 3.2315
+2026-07-27 10:14:25 - INFO - Epoch [20/50] Train Loss: 4.6061
+2026-07-27 10:14:25 - INFO - top5 acc 48.00%	top1 acc 20.00%	Test Loss: 3.1476
+2026-07-27 10:14:54 - INFO - Epoch [21/50] Train Loss: 4.5657
+2026-07-27 10:14:54 - INFO - top5 acc 46.50%	top1 acc 16.00%	Test Loss: 3.2118
+2026-07-27 10:15:24 - INFO - Epoch [22/50] Train Loss: 4.5233
+2026-07-27 10:15:24 - INFO - top5 acc 47.50%	top1 acc 19.00%	Test Loss: 3.2569
+2026-07-27 10:15:52 - INFO - Epoch [23/50] Train Loss: 4.4869
+2026-07-27 10:15:53 - INFO - top5 acc 46.50%	top1 acc 19.00%	Test Loss: 3.2665
+2026-07-27 10:16:21 - INFO - Epoch [24/50] Train Loss: 4.4508
+2026-07-27 10:16:22 - INFO - top5 acc 49.50%	top1 acc 17.00%	Test Loss: 3.2195
+2026-07-27 10:16:51 - INFO - Epoch [25/50] Train Loss: 4.4114
+2026-07-27 10:16:51 - INFO - top5 acc 47.50%	top1 acc 16.50%	Test Loss: 3.1801
+2026-07-27 10:17:20 - INFO - Epoch [26/50] Train Loss: 4.3718
+2026-07-27 10:17:20 - INFO - top5 acc 48.00%	top1 acc 14.50%	Test Loss: 3.2273
+2026-07-27 10:17:49 - INFO - Epoch [27/50] Train Loss: 4.3386
+2026-07-27 10:17:49 - INFO - top5 acc 46.50%	top1 acc 15.50%	Test Loss: 3.2269
+2026-07-27 10:18:17 - INFO - Epoch [28/50] Train Loss: 4.3086
+2026-07-27 10:18:18 - INFO - top5 acc 41.00%	top1 acc 13.50%	Test Loss: 3.3529
+2026-07-27 10:18:48 - INFO - Epoch [29/50] Train Loss: 4.2734
+2026-07-27 10:18:49 - INFO - top5 acc 44.00%	top1 acc 14.50%	Test Loss: 3.2412
+2026-07-27 10:19:19 - INFO - Epoch [30/50] Train Loss: 4.2390
+2026-07-27 10:19:19 - INFO - top5 acc 46.00%	top1 acc 15.50%	Test Loss: 3.2650
+2026-07-27 10:19:50 - INFO - Epoch [31/50] Train Loss: 4.2053
+2026-07-27 10:19:50 - INFO - top5 acc 46.00%	top1 acc 14.00%	Test Loss: 3.3008
+2026-07-27 10:20:19 - INFO - Epoch [32/50] Train Loss: 4.1794
+2026-07-27 10:20:19 - INFO - top5 acc 42.50%	top1 acc 13.50%	Test Loss: 3.3678
+2026-07-27 10:20:50 - INFO - Epoch [33/50] Train Loss: 4.1501
+2026-07-27 10:20:50 - INFO - top5 acc 42.50%	top1 acc 16.00%	Test Loss: 3.3187
+2026-07-27 10:21:21 - INFO - Epoch [34/50] Train Loss: 4.1172
+2026-07-27 10:21:21 - INFO - top5 acc 39.00%	top1 acc 15.00%	Test Loss: 3.5147
+2026-07-27 10:21:51 - INFO - Epoch [35/50] Train Loss: 4.0867
+2026-07-27 10:21:51 - INFO - top5 acc 41.00%	top1 acc 14.50%	Test Loss: 3.4008
+2026-07-27 10:22:20 - INFO - Epoch [36/50] Train Loss: 4.0599
+2026-07-27 10:22:20 - INFO - top5 acc 39.50%	top1 acc 13.50%	Test Loss: 3.4433
+2026-07-27 10:22:49 - INFO - Epoch [37/50] Train Loss: 4.0339
+2026-07-27 10:22:49 - INFO - top5 acc 39.50%	top1 acc 14.50%	Test Loss: 3.3711
+2026-07-27 10:23:18 - INFO - Epoch [38/50] Train Loss: 4.0014
+2026-07-27 10:23:18 - INFO - top5 acc 42.50%	top1 acc 15.00%	Test Loss: 3.4148
+2026-07-27 10:23:47 - INFO - Epoch [39/50] Train Loss: 3.9787
+2026-07-27 10:23:47 - INFO - top5 acc 43.50%	top1 acc 16.00%	Test Loss: 3.3826
+2026-07-27 10:24:16 - INFO - Epoch [40/50] Train Loss: 3.9542
+2026-07-27 10:24:16 - INFO - top5 acc 38.50%	top1 acc 15.00%	Test Loss: 3.3766
+2026-07-27 10:24:44 - INFO - Epoch [41/50] Train Loss: 3.9276
+2026-07-27 10:24:44 - INFO - top5 acc 38.00%	top1 acc 16.00%	Test Loss: 3.3564
+2026-07-27 10:25:14 - INFO - Epoch [42/50] Train Loss: 3.9038
+2026-07-27 10:25:14 - INFO - top5 acc 39.00%	top1 acc 17.50%	Test Loss: 3.3594
+2026-07-27 10:25:43 - INFO - Epoch [43/50] Train Loss: 3.8773
+2026-07-27 10:25:43 - INFO - top5 acc 42.50%	top1 acc 17.50%	Test Loss: 3.4336
+2026-07-27 10:26:12 - INFO - Epoch [44/50] Train Loss: 3.8573
+2026-07-27 10:26:12 - INFO - top5 acc 39.00%	top1 acc 15.00%	Test Loss: 3.5666
+2026-07-27 10:26:41 - INFO - Epoch [45/50] Train Loss: 3.8324
+2026-07-27 10:26:41 - INFO - top5 acc 38.00%	top1 acc 15.50%	Test Loss: 3.4979
+2026-07-27 10:27:11 - INFO - Epoch [46/50] Train Loss: 3.8071
+2026-07-27 10:27:12 - INFO - top5 acc 38.50%	top1 acc 16.00%	Test Loss: 3.4583
+2026-07-27 10:27:42 - INFO - Epoch [47/50] Train Loss: 3.7835
+2026-07-27 10:27:42 - INFO - top5 acc 42.50%	top1 acc 15.50%	Test Loss: 3.4945
+2026-07-27 10:28:12 - INFO - Epoch [48/50] Train Loss: 3.7628
+2026-07-27 10:28:12 - INFO - top5 acc 40.50%	top1 acc 15.50%	Test Loss: 3.5429
+2026-07-27 10:28:41 - INFO - Epoch [49/50] Train Loss: 3.7462
+2026-07-27 10:28:41 - INFO - top5 acc 41.50%	top1 acc 12.00%	Test Loss: 3.5971
+2026-07-27 10:29:12 - INFO - Epoch [50/50] Train Loss: 3.7211
+2026-07-27 10:29:12 - INFO - top5 acc 40.50%	top1 acc 15.50%	Test Loss: 3.5081
+2026-07-27 10:29:12 - INFO - best test loss: 3.1466 top5 acc: 50.50 top1 acc: 20.00 at epoch 17

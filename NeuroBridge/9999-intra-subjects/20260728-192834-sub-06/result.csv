@@ -1,0 +1,2 @@
+top1 acc,top5 acc,best top1 acc,best top5 acc,best test loss,best epoch
+69.00,94.50,70.00,95.00,0.8853,49
