@@ -1,0 +1,9 @@
+**English Caption**
+Fig. 4. Multi-dimensional Feature Dependence and Generalization Robustness across Subject Groups.
+(A-C) Relative performance retention curves under progressive perturbation across (A) Spectral, (B) Spatial, and (C) Temporal dimensions. The x-axis denotes the masking ratio (0.0 <= x <= 1.0), and the y-axis represents the normalized accuracy retention relative to the baseline. Solid lines indicate the mean degradation trajectory across all subject groups (N=15), fitted via cubic splines. Shaded regions denote the 95% confidence intervals (CI), illustrating the inter-subject variance and generalization stability. (D) Cross-dimensional robustness comparison. Overlay of the mean retention curves highlights the model's differential vulnerability.
+Conclusion: The model exhibits catastrophic performance collapse under spatial perturbations (AUC = 0.22) while maintaining high robustness to temporal block shuffling (AUC = 0.88), revealing a strong bias toward spatial topology over temporal dynamics for feature decoding.
+
+**Chinese Caption**
+图 4. 跨个体组的多维度特征依赖性与泛化鲁棒性评估。
+(A-C) 模型在 (A) 频域、(B) 空域和 (C) 时域渐进式扰动下的相对性能保持曲线。X 轴表示特征掩码/扰动比例（0.0 <= x <= 1.0），Y 轴代表相对于基线水平的归一化准确率保持率。实线表示跨所有个体组（N=15）的均值衰减轨迹（通过三次样条插值拟合）。阴影区域表示 95% 置信区间（CI），反映了个体间的方差与泛化范围。(D) 跨维度鲁棒性综合对比。三条均值保持曲线的叠加直观凸显了模型在不同维度上的脆弱性差异。
+结论：模型在空域扰动下表现出灾难性的性能崩溃（AUC = 0.22），但在时序块置乱下保持了高度鲁棒性（AUC = 0.88），这表明模型在特征解码时高度依赖局部空间拓扑结构，而忽略了时域动态演变。

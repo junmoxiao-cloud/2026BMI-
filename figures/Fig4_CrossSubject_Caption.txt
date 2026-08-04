@@ -1,0 +1,9 @@
+**English Caption**
+Fig. 4. Cross-Subject Consistency and Feature Dependence for Generalization.
+(A) Distribution of baseline decoding accuracy across all individual subjects ($N=30$), presented as a violin plot overlaid with a swarm plot to show the underlying variance. (B-C) Scatter plots correlating subject-level baseline accuracy (x-axis) with the performance drop (y-axis) induced by ablating (B) the core T2×Beta feature and (C) general spatial topology. Solid and dashed lines indicate linear regression fits, with Pearson's correlation coefficient ($r$) and significance ($p$) annotated. (D) Cross-feature strategy trade-off, mapping the T2×Beta dependence against spatial dependence, where each dot represents a subject and is color-coded by their baseline accuracy.
+Conclusion: A significant positive correlation ($r > 0.8$, $p < 0.001$) in Panel B reveals that high-performing subjects consistently rely on the T2×Beta mechanism. In contrast, the absence of such correlation in Panel C and the distinct clustering in Panel D indicate that while low-performing subjects may depend on generic spatial patterns, the true driver of robust generalization is the extraction of temporally precise frequency-band dynamics.
+
+**Chinese Caption**
+图 4. 跨被试一致性与泛化特征依赖性分析。
+(A) 所有个体被试（$N=30$）基线解码准确率的分布，采用小提琴图结合带抖动的散点图（Swarm plot）展示其内在方差。(B-C) 个体基线准确率（X 轴）与特征消融引起的性能下降（Y 轴）之间的相关性散点图。分别展示了 (B) 核心 T2×Beta 特征以及 (C) 通用空间拓扑特征的依赖度。实线和虚线表示线性回归拟合，并标注了皮尔逊相关系数（$r$）和显著性（$p$）。(D) 跨特征策略的权衡（Trade-off）散点图，映射了 T2×Beta 依赖度与空域依赖度的关系，每个点代表一个被试，其颜色深度映射了该被试的基线准确率。
+结论：图 B 中显著的正相关性（$r > 0.8$, $p < 0.001$）揭示了高表现被试在解码时一致且高度地依赖 T2×Beta 机制。相反，图 C 中相关性的缺失以及图 D 中的聚类分布表明，尽管低表现被试可能依赖通用的空间模式，但实现鲁棒泛化能力的核心驱动力在于对时间精准的频段动态特征的提取。

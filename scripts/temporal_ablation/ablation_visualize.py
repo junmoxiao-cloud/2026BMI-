@@ -139,14 +139,14 @@ def plot_heatmap(data, baseline_top1, out_dir, sig_map=None):
     cb = plt.colorbar(im, ax=ax, shrink=0.8)
     cb.set_label("Top-1 Accuracy Drop  (higher = more important)", fontsize=10)
     bl = f"  [Baseline Top-1: {baseline_top1:.4f}]" if baseline_top1 else ""
-    ax.set_title(f"Phase 1: STFT Temporal Ablation — Top-1 Accuracy Drop Heatmap{bl}\n"
+    ax.set_title(f"STFT Temporal Ablation — Top-1 Accuracy Drop Heatmap{bl}\n"
                  "* p < 0.05 (Uncorrected) | ** q < 0.05 (FDR Corrected)\n"
-                 "(NeuroBridge sub-08 | THINGS-EEG2 | Cichy 2014 / Thorpe 1996 time windows)",
+                 "(NeuroBridge sub-08 | THINGS-EEG | Cichy 2014 / Thorpe 1996 time windows)",
                  fontsize=10, fontweight="bold")
     ax.set_xlabel("Frequency Band  [Fries 2015: gamma=feedforward, beta=feedback]", fontsize=9)
     ax.set_ylabel("Time Window", fontsize=10)
     plt.tight_layout()
-    out = out_dir / "fig1_stft_heatmap.png"
+    out = out_dir / "fig2_phase2_heatmap.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -176,13 +176,17 @@ def plot_phase1_bar(rows, out_dir, sig_map=None):
             ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
                     fontsize=12, fontweight="bold", color="black")
 
+    max_y = max(max(d1), max(d5))
+    min_y = min(min(d1), min(d5), 0)
+    ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9, rotation=45, ha="right")
-    ax.set_ylabel("Accuracy Drop", fontsize=10)
-    ax.set_title("Phase 1: STFT Ablation — Top 10 Accuracy Drop per Condition", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Accuracy Drop vs Baseline", fontsize=11)
+    ax.set_title("STFT Ablation — Top 10 Accuracy Drop per Condition", fontsize=12, fontweight="bold")
     ax.legend(fontsize=10); ax.grid(axis="y", alpha=0.3)
     plt.tight_layout()
-    out = out_dir / "fig2_phase1_bar.png"
+    out = out_dir / "fig3_phase2_top10.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -246,12 +250,12 @@ def plot_scaling_curve(rows, out_dir, sig_map=None):
     ax.axvspan(0.6, 0.8, alpha=0.10, color="orange", zorder=0, label="AD range (alpha=0.6-0.8)")
     ax.set_xlabel("Amplitude Scale Factor (alpha)  [0=zeroed, 1=original, >1=enhanced]", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
-    ax.set_title("Phase 2A: Amplitude Scaling\n"
+    ax.set_title("Amplitude Scaling\n"
                  "(orange = AD amplitude reduction range; Haufe 2014 interpretation framework)",
                  fontsize=11, fontweight="bold")
     ax.legend(fontsize=8, loc="lower right"); ax.grid(alpha=0.3); ax.set_xlim(-0.05, 2.1)
     plt.tight_layout()
-    out = out_dir / "fig3_amplitude_scaling.png"
+    out = out_dir / "fig4_phase3a_scaling.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -278,12 +282,12 @@ def plot_phase_curve(rows, out_dir, sig_map=None):
                         fontsize=12, fontweight="bold", color=COLORS[i%len(COLORS)])
     ax.set_xlabel("Phase Randomization Ratio  (0=original phase, 1=fully random phase)", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
-    ax.set_title("Phase 2B: Phase Randomization — Power preserved, temporal structure destroyed\n"
+    ax.set_title("Phase Randomization — Power preserved, temporal structure destroyed\n"
                  "(if drop >> Scaling drop: model uses phase; if similar: model uses power spectrum)",
                  fontsize=10, fontweight="bold")
     ax.legend(fontsize=8); ax.grid(alpha=0.3); ax.set_xlim(-0.05, 1.05)
     plt.tight_layout()
-    out = out_dir / "fig4_phase_randomization.png"
+    out = out_dir / "fig5_phase3b_phase_rand.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -312,11 +316,11 @@ def plot_noise_curve(rows, out_dir, sig_map=None):
     ax.axvline(0, color="gray", linestyle=":", linewidth=1.2, label="SNR=0dB")
     ax.set_xlabel("SNR (dB)  [right=cleaner signal, left=noisier]", fontsize=10)
     ax.set_ylabel("Top-1 Accuracy", fontsize=10)
-    ax.set_title("Phase 2C: Gaussian Noise Injection — BCI Robustness Test\n"
+    ax.set_title("Gaussian Noise Injection — BCI Robustness Test\n"
                  "(find critical SNR where accuracy collapses)", fontsize=11, fontweight="bold")
     ax.legend(fontsize=8); ax.grid(alpha=0.3)
     plt.tight_layout()
-    out = out_dir / "fig5_noise_injection.png"
+    out = out_dir / "fig6_phase3c_noise.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -350,13 +354,17 @@ def plot_phase3_bar(rows, out_dir, sig_map=None):
             ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if d1[i] >= 0 else "top", 
                     fontsize=12, fontweight="bold", color="black", zorder=10)
 
+    max_y = max(max(d1), max(d5))
+    min_y = min(min(d1), min(d5), 0)
+    ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9)
     ax.set_ylabel("Accuracy Drop", fontsize=10)
-    ax.set_title("Phase 3: Full Frequency Band Masking per Time Window", fontsize=11, fontweight="bold")
+    ax.set_title("Full Frequency Band Masking per Time Window", fontsize=11, fontweight="bold")
     ax.legend(fontsize=10); ax.grid(axis="y", alpha=0.3)
     plt.tight_layout()
-    out = out_dir / "fig7_phase3_bar.png"
+    out = out_dir / "fig1_phase1_full_freq.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -399,16 +407,29 @@ def plot_phase2_summary(rows, out_dir, sig_map=None):
                             fontsize=10, fontweight="bold", color="black", zorder=10)
                         
         ax.bar(x+(pi-1)*w, drops, w, label=pl, color=COLORS[pi], alpha=0.85)
+
+    # find global min and max for ylim
+    all_drops = []
+    for pi,(pt,ep,pl) in enumerate(pert_info):
+        for cond in conds:
+            m = [r for r in rows if r["condition"]==cond and r["perturbation"]==pt
+                 and abs(float(r["param_value"])-ep)<0.01]
+            if m: all_drops.append(float(m[0]["top1_drop"]))
+    if all_drops:
+        max_y = max(all_drops)
+        min_y = min(all_drops + [0])
+        ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.set_xticks(x)
     ax.set_xticklabels([c.replace("__","\n") for c in conds], fontsize=9)
-    ax.set_ylabel("Top-1 Accuracy Drop  (higher = more important)", fontsize=10)
-    ax.set_title("Phase 2 Summary: Three Perturbation Types at Maximum Strength\n"
+    ax.set_ylabel("Top-1 Accuracy Drop", fontsize=10)
+    ax.set_title("Three Perturbation Types at Maximum Strength\n"
                  "(compare: Scaling vs Phase-rand vs Noise across conditions)",
-                 fontsize=11, fontweight="bold")
+                 fontsize=12, fontweight="bold")
     ax.legend(fontsize=8, loc="upper right")
     ax.axhline(0, color="black", linewidth=0.8); ax.grid(axis="y", alpha=0.3)
     plt.tight_layout()
-    out = out_dir / "fig6_phase2_summary.png"
+    out = out_dir / "fig7_phase3_summary.png"
     plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
     print(f"  Saved: {out}")
 
@@ -463,13 +484,13 @@ def main():
             print("  [Skip Phase3] Phase 3 CSV not found or empty")
 
     print(f"\n[OK] All figures saved to: {args.output_dir}")
-    print("    fig1_stft_heatmap.png        — Phase 1 时频热力图")
-    print("    fig2_phase1_bar.png          — Phase 1 柱状图")
-    print("    fig3_amplitude_scaling.png   — Phase 2A 振幅缩放曲线")
-    print("    fig4_phase_randomization.png — Phase 2B 相位随机化曲线")
-    print("    fig5_noise_injection.png     — Phase 2C 噪声注入曲线")
-    print("    fig6_phase2_summary.png      — Phase 2 三种扰动综合对比")
-    print("    fig7_phase3_bar.png          — Phase 3 全频段掩码柱状图")
+    print("    fig1_phase1_full_freq.png      — Phase 1 全频段掩码柱状图")
+    print("    fig2_phase2_heatmap.png        — Phase 2 时频热力图")
+    print("    fig3_phase2_top10.png          — Phase 2 柱状图")
+    print("    fig4_phase3a_scaling.png       — Phase 3A 振幅缩放曲线")
+    print("    fig5_phase3b_phase_rand.png    — Phase 3B 相位随机化曲线")
+    print("    fig6_phase3c_noise.png         — Phase 3C 噪声注入曲线")
+    print("    fig7_phase3_summary.png        — Phase 3 三种扰动综合对比")
 
 if __name__ == "__main__":
     main()

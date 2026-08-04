@@ -83,7 +83,7 @@ def plot_panel_A_phase3(ax, rows, sig_map):
     valid = [r for r in rows if r.get("time_window") in TW_ORDER and r.get("top1_drop") not in ("","None",None)]
     if not valid:
         ax.text(0.5, 0.5, "No Phase 3 Data", ha="center", va="center")
-        ax.set_title("A. Phase 3: Full-Frequency Window Masking")
+        ax.set_title("A. Full-Frequency Window Masking")
         return
     
     # 按照 TW_ORDER 排序
@@ -105,10 +105,14 @@ def plot_panel_A_phase3(ax, rows, sig_map):
         y_pos = v + 0.005 if v >= 0 else v - 0.015
         ax.text(i, y_pos, text_str, ha="center", va="bottom" if v >= 0 else "top", fontsize=9, fontweight="bold")
         
+    max_y = max(d1)
+    min_y = min(d1 + [0])
+    ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=9, rotation=15, ha="right")
     ax.set_ylabel("Top-1 Accuracy Drop", fontsize=10)
-    ax.set_title("A. Phase 3: Full-Frequency Window Masking", fontsize=12, fontweight="bold")
+    ax.set_title("A. Full-Frequency Window Masking", fontsize=12, fontweight="bold")
     ax.grid(axis="y", alpha=0.3)
 
 def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
@@ -121,7 +125,7 @@ def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
                 
     if np.all(np.isnan(matrix)):
         ax.text(0.5, 0.5, "No Phase 1 Data", ha="center", va="center")
-        ax.set_title("B. Phase 1: STFT Ablation Heatmap")
+        ax.set_title("B. STFT Ablation Heatmap")
         return
 
     vmax = max(0.15, np.nanmax(matrix))
@@ -164,16 +168,16 @@ def plot_panel_B_heatmap(ax, data, baseline_top1, sig_map):
     cb.set_label("Top-1 Acc Drop", fontsize=9)
     
     bl = f" [Baseline: {baseline_top1:.4f}]" if baseline_top1 else ""
-    ax.set_title(f"B. Phase 1: STFT Top-1 Drop Heatmap{bl}\n* p < 0.05 (Uncorrected) | ** q < 0.05 (FDR Corrected)", fontsize=12, fontweight="bold")
+    ax.set_title(f"B. STFT Top-1 Drop Heatmap{bl}\n* p < 0.05 (Uncorrected) | ** q < 0.05 (FDR Corrected)", fontsize=12, fontweight="bold")
 
 def plot_panel_C_top10(ax, rows, sig_map):
     """Panel C: Phase 1 Top-10 柱状图"""
     valid = [r for r in rows
              if r.get("name") not in ("baseline","full_mask_all","random_control","")
              and r.get("top1_drop") not in ("","None",None) and "__" in r.get("name", "")]
-    if not valid:
+    if not rows:
         ax.text(0.5, 0.5, "No Phase 1 Data", ha="center", va="center")
-        ax.set_title("C. Phase 1: Top-10 Accuracy Drop")
+        ax.set_title("C. Top-10 Accuracy Drop")
         return
         
     valid.sort(key=lambda x: float(x["top1_drop"]), reverse=True)
@@ -196,12 +200,16 @@ def plot_panel_C_top10(ax, rows, sig_map):
             y_pos = v + 0.01 if v >= 0 else v - 0.02
             ax.text(x[i] - w/2, y_pos, ast, ha="center", va="bottom" if v >= 0 else "top", fontsize=12, fontweight="bold", color="black")
 
+    max_y = max(max(d1), max(d5))
+    min_y = min(min(d1), min(d5), 0)
+    ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=8, rotation=30, ha="right")
     ax.set_ylabel("Accuracy Drop", fontsize=10)
-    ax.set_title("C. Phase 1: Top-10 Most Important Time-Freq Features", fontsize=12, fontweight="bold")
+    ax.set_title("C. Top-10 Most Important Time-Freq Features", fontsize=12, fontweight="bold")
     ax.legend(fontsize=9)
     ax.grid(axis="y", alpha=0.3)
 
@@ -210,7 +218,7 @@ def plot_panel_D_phase2(ax, rows, sig_map):
     conds = sorted(set(r["condition"] for r in rows if r.get("condition")))
     if not conds:
         ax.text(0.5, 0.5, "No Phase 2 Data", ha="center", va="center")
-        ax.set_title("D. Phase 2: Perturbation Summary")
+        ax.set_title("D. Perturbation Summary")
         return
         
     pert_info = [
@@ -221,6 +229,7 @@ def plot_panel_D_phase2(ax, rows, sig_map):
     x = np.arange(len(conds))
     w = 0.25
     
+    all_drops = []
     for pi, (pt, ep, pl) in enumerate(pert_info):
         drops = []
         for cond in conds:
@@ -228,6 +237,7 @@ def plot_panel_D_phase2(ax, rows, sig_map):
                  and abs(float(r["param_value"]) - ep) < 0.01]
             drop_val = float(m[0]["top1_drop"]) if m else 0.0
             drops.append(drop_val)
+            all_drops.append(drop_val)
             
             if m:
                 cond_name = ""
@@ -246,10 +256,15 @@ def plot_panel_D_phase2(ax, rows, sig_map):
                     ax.text(bar_x, y_pos, ast, ha="center", va="bottom" if drop_val >= 0 else "top", fontsize=10, fontweight="bold", color="black", zorder=10)
         ax.bar(x + (pi - 1) * w, drops, w, label=pl, color=COLORS[pi], alpha=0.85)
         
+    if all_drops:
+        max_y = max(all_drops)
+        min_y = min(all_drops + [0])
+        ax.set_ylim(min_y * 1.15 if min_y < 0 else -0.01, max_y * 1.15)
+
     ax.set_xticks(x)
     ax.set_xticklabels([c.replace("__", "\n") for c in conds], fontsize=8, rotation=20, ha="right")
     ax.set_ylabel("Top-1 Accuracy Drop", fontsize=10)
-    ax.set_title("D. Phase 2: Perturbation Types at Max Strength", fontsize=12, fontweight="bold")
+    ax.set_title("D. Perturbation Types at Max Strength", fontsize=12, fontweight="bold")
     ax.legend(fontsize=9, loc="upper right")
     ax.axhline(0, color="black", linewidth=0.8)
     ax.grid(axis="y", alpha=0.3)
