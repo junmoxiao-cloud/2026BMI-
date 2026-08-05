@@ -36,8 +36,11 @@
 
 **[2] 参考文献**：Z. Zhang et al., "NeuroBridge: Bio-Inspired Self-Supervised EEG-to-Image Decoding," 2025.
 
-**原文截图占位符**：
+**原文截图**：
 <img src="screenshots/ref2.png" alt="原句截图 - NeuroBridge 2025 基线模型说明" width="800" />
+
+**提取原句**：
+- **[2]**: "...we propose a novel self-supervised architecture, named NeuroBridge, which integrates Cognitive Prior Augmentation (CPA) with Shared Semantic Projector (SSP) to promote effective cross-modality alignment. Specifically, CPA simulates perceptual variability by applying asymmetric, modality-specific transformations to both EEG signals and images, enhancing semantic diversity. Unlike previous approaches, SSP establishes a bidirectional alignment process through a co-adaptive strategy, which mutually aligns features from two modalities into a shared semantic space for effective cross-modal learning."
 
 **联系解读**：
 这是本文的基础模型/前置工作（您团队的工作）。引用 [2] 的目的是为后续的 Temporal Ablation 提供上下文——我们是对哪种模型、在什么任务背景下进行的消融与机制解释。
